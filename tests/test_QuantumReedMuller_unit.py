@@ -1,0 +1,41 @@
+from qrmfold import QuantumReedMuller, _p_automorphism, _q_automorphism
+
+def test_p_automorphism():
+    swaps = _p_automorphism(4, 1, 2)
+    expected_swaps = [('0001', '0010'), ('0101', '0110'), ('1001', '1010'), ('1101', '1110')]
+    assert set(swaps) == set(expected_swaps)
+    swaps = _p_automorphism(4, 3, 4)
+    expected_swaps = [('0100', '1000'), ('0101', '1001'), ('0110', '1010'), ('0111', '1011')]
+    assert set(swaps) == set(expected_swaps)
+
+def test_q_automorphism():
+    swaps = _q_automorphism(4, 1, 2)
+    expected_swaps = [('0010', '0011'), ('0110', '0111'), ('1010', '1011'), ('1110', '1111')]
+    assert set(swaps) == set(expected_swaps)
+    swaps = _q_automorphism(4, 3, 4)
+    expected_swaps = [('1000', '1100'), ('1001', '1101'), ('1010', '1110'), ('1011', '1111')]
+    assert set(swaps) == set(expected_swaps)
+
+def test_swap_type(qrm4: QuantumReedMuller):
+    swap_gates = qrm4.automorphism('P', [(1, 2)]).swap_type()
+    assert swap_gates == {(9, 10), (13, 14), (1, 2), (5, 6)}
+    swap_gates = qrm4.automorphism('P', [(3, 4)]).swap_type()
+    assert swap_gates == {(5, 9), (7, 11), (6, 10), (4, 8)}
+    swap_gates = qrm4.automorphism('Q', [(1, 2)]).swap_type()
+    assert swap_gates == {(2, 3), (6, 7), (10, 11), (14, 15)}
+    swap_gates = qrm4.automorphism('Q', [(3, 4)]).swap_type()
+    assert swap_gates == {(11, 15), (9, 13), (10, 14), (8, 12)}
+
+def test_phase_type(qrm4: QuantumReedMuller):
+    cz_gates, s_gates = qrm4.automorphism('P', [(1, 2)]).phase_type()
+    assert cz_gates == {(9, 10), (13, 14), (1, 2), (5, 6)}
+    assert s_gates == {0, 3, 12, 15}.union({8, 11, 4, 7})
+    cz_gates, s_gates = qrm4.automorphism('P', [(3, 4)]).phase_type()
+    assert cz_gates == {(5, 9), (7, 11), (6, 10), (4, 8)}
+    assert s_gates == {0, 3, 12, 15}.union({1, 2, 13, 14})
+    cz_gates, s_gates = qrm4.automorphism('Q', [(1, 2)]).phase_type()
+    assert cz_gates == {(2, 3), (6, 7), (10, 11), (14, 15)}
+    assert s_gates == {0, 9, 12, 5}.union({8, 1, 4, 13})
+    cz_gates, s_gates = qrm4.automorphism('Q', [(3, 4)]).phase_type()
+    assert cz_gates == {(11, 15), (9, 13), (10, 14), (8, 12)}
+    assert s_gates == {0, 3, 5, 6}.union({1, 2, 4, 7})
