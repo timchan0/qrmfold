@@ -1,5 +1,6 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Collection, Sequence
 import itertools
+from itertools import chain, combinations
 from functools import reduce
 import math
 from typing import Literal
@@ -9,23 +10,40 @@ import stim
 import numpy as np
 
 
-def logical_index_to_subset_default(m: int):
+def logical_index_to_subset_default(m: int, start_index: int = 0):
     """Return the lexicographic map from logical index to subset of [m] of cardinality m/2."""
-    return dict(enumerate(itertools.combinations(range(1, m+1), m//2)))
+    return dict(enumerate(itertools.combinations(range(1, m+1), m//2), start=start_index))
 
 
-def logical_index_to_subset_alternative(m: int):
-    map_ = {}
+def logical_index_to_subset_alternative(m: int, start_index: int = 0):
+    """Return the map from logical index to subset of [m] of cardinality m/2
+    where the first half is lexicographically ordered
+    and the second half is the complement of the first half.
+    """
+    map_: dict[int, tuple[int, ...]] = {}
     logical_qubit_count = math.comb(m, m//2)
     one_to_m = range(1, m+1)
     for index, subset in zip(
-        range(logical_qubit_count//2),
+        range(start_index, start_index + logical_qubit_count//2),
         itertools.combinations(one_to_m, m//2),
     ):
         map_[index] = subset
         complement = tuple(k for k in one_to_m if k not in subset)
         map_[logical_qubit_count//2 + index] = complement
     return map_
+
+
+# adapted from itertools recipes
+def powerset(pairs: Collection[tuple[int, int]], max_cardinality: None | int = None):
+    """Subsequences of the collection `pairs` from shortest to longest."""
+    # powerset([1,2,3]) → () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
+    if max_cardinality is None:
+        max_cardinality = len(pairs)
+    return chain.from_iterable(combinations(pairs, r) for r in range(max_cardinality+1))
+
+
+def extract_arguments(index: Literal[0, 1], l_subset: Iterable[tuple[int, int]]):
+    return {pair[index] for pair in l_subset}
 
 
 class ReedMuller:
@@ -45,7 +63,8 @@ class ReedMuller:
         """Construct the vector for x_i of length 2^m, which has form:
         A string of 2^i 0s followed by 2^i 1s, repeated
         2^m / (2*2^i) = 2^{m-1}/2^i = 2^{m-1-i} times.
-        NOTE: we must have 0 <= i < m."""
+        NOTE: we must have 0 <= i < m.
+        """
         return ([0] * 2**i + [1] * 2**i) * 2 ** (self.M-i-1)
 
 
@@ -82,6 +101,9 @@ class QuantumReedMuller:
             self.logical_operators[subset] = [x, z]
         self.logical_index_to_subset = logical_index_to_subset_default(m) \
             if logical_index_to_subset is None else logical_index_to_subset
+        self.subset_to_logical_index = {
+            frozenset(subset): index for index, subset in self.logical_index_to_subset.items()
+        }
 
     def print(self):
         for basis in ('X', 'Z'):
@@ -135,6 +157,55 @@ class QuantumReedMuller:
             else:
                 raise ValueError("type_ must be 'P' or 'Q'")
         return automorphism
+    
+    def q_automorphism_phase_type_logical_action(self, pairs: Collection[tuple[int, int]]):
+        """Return the logical action of the U_P(Q(K)) where K is the set of pairs."""
+        circuit = stim.Circuit()
+        for l_subset in powerset(pairs, self.M//2 - 2):
+            self._logical_action_helper(circuit, l_subset, gates=['CZ'])
+        if len(pairs) >= self.M//2 - 1:
+            for l_subset in itertools.combinations(pairs, self.M//2 - 1):
+                self._logical_action_helper(circuit, l_subset, gates=['CZ', 'Z'])
+        if len(pairs) == self.M//2:
+            arguments_0 = extract_arguments(0, pairs)
+            logical_index = self.subset_to_logical_index[frozenset(arguments_0)]
+            gate = 'S_DAG' if self.M//2 % 2 else 'S'
+            circuit.append(gate, logical_index, ())
+        return circuit
+    
+    def q_automorphism_phase_type_product_logical_action(self, pairs: Collection[tuple[int, int]]):
+        """Return the logical action of the product_{L subset of K} U_P(Q(L)), where K is the set of pairs."""
+        circuit = stim.Circuit()
+        if len(pairs) <= self.M//2 - 2:
+            self._logical_action_helper(circuit, pairs, gates=['CZ'])
+        elif len(pairs) == self.M//2 - 1:
+            self._logical_action_helper(circuit, pairs, gates=['CZ', 'Z'])
+        elif len(pairs) == self.M//2:
+            arguments_0 = extract_arguments(0, pairs)
+            logical_index = self.subset_to_logical_index[frozenset(arguments_0)]
+            gate = 'S_DAG' if self.M//2 % 2 else 'S'
+            circuit.append(gate, logical_index, ())
+        else:
+            raise ValueError("pairs length cannot exceed m/2")
+        return circuit
+
+    def _logical_action_helper(
+            self,
+            circuit: stim.Circuit,
+            pairs: Collection[tuple[int, int]],
+            gates: Sequence[str],
+    ):
+        arguments_0 = extract_arguments(0, pairs)
+        arguments_1 = extract_arguments(1, pairs)
+        encountered_qubits: set[int] = set()
+        for logical_index, b_subset in self.logical_index_to_subset.items():
+            if logical_index not in encountered_qubits and arguments_0.issubset(b_subset) and arguments_1.isdisjoint(b_subset):
+                b_complement = set(range(1, self.M+1)).difference(b_subset)
+                b_prime_subset = b_complement.union(arguments_0).difference(arguments_1)
+                logical_index_prime = self.subset_to_logical_index[frozenset(b_prime_subset)]
+                for gate in gates:
+                    circuit.append(gate, [logical_index, logical_index_prime], ())
+                encountered_qubits.add(logical_index_prime)
 
 
 def _p_automorphism(m: int, i: int, j: int):
@@ -279,8 +350,9 @@ class Automorphism:
         return circuit
 
 
-def rref_gf2(matrix):  # TODO: use galois package instead https://stackoverflow.com/questions/56856378/fast-computation-of-matrix-rank-over-gf2
+def rref_gf2(matrix):
     """Compute the reduced row echelon form of a binary matrix over GF(2)."""
+    # TODO: use galois package instead https://stackoverflow.com/questions/56856378/fast-computation-of-matrix-rank-over-gf2
     array = np.array(matrix, dtype=int)
     rows, cols = array.shape
     pivot_row = 0
@@ -310,8 +382,10 @@ def rref_gf2(matrix):  # TODO: use galois package instead https://stackoverflow.
 
 
 if __name__ == "__main__":
-    m = 6
-    qrm = QuantumReedMuller(m)
-    qrm.print()
-    circuit = qrm.automorphism('Q', [(1, 2)]).phase_type_circuit()
-    print(circuit.diagram())
+    m = 4
+    # print(logical_index_to_subset_default(m, start_index=1))
+    qrm = QuantumReedMuller(m, logical_index_to_subset=logical_index_to_subset_alternative(m, start_index=1))
+    circuit = qrm.automorphism('Q', []).phase_type_circuit()
+    logical_circuit = qrm.q_automorphism_phase_type_logical_action([])
+    print(logical_circuit.diagram())
+    print(logical_circuit.to_tableau())
