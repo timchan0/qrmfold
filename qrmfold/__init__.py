@@ -281,8 +281,8 @@ class Automorphism:
 
 def rref_gf2(matrix):  # TODO: use galois package instead https://stackoverflow.com/questions/56856378/fast-computation-of-matrix-rank-over-gf2
     """Compute the reduced row echelon form of a binary matrix over GF(2)."""
-    A = np.array(matrix, dtype=int)
-    rows, cols = A.shape
+    array = np.array(matrix, dtype=int)
+    rows, cols = array.shape
     pivot_row = 0
 
     for j in range(cols):
@@ -291,22 +291,22 @@ def rref_gf2(matrix):  # TODO: use galois package instead https://stackoverflow.
         
         # Find a pivot (a '1' in the current column)
         i = pivot_row
-        while i < rows and A[i, j] == 0:
+        while i < rows and array[i, j] == 0:
             i += 1
         
         if i < rows:
             # Swap rows if the pivot is not in the current pivot_row
             if i != pivot_row:
-                A[[i, pivot_row]] = A[[pivot_row, i]]
+                array[[i, pivot_row]] = array[[pivot_row, i]]
             
             # Eliminate other 1s in the current column using XOR (modulo 2 addition)
             for k in range(rows):
-                if k != pivot_row and A[k, j] == 1:
-                    A[k, :] = A[k, :] ^ A[pivot_row, :]
+                if k != pivot_row and array[k, j] == 1:
+                    array[k, :] = array[k, :] ^ array[pivot_row, :]
             
             pivot_row += 1
             
-    return A
+    return array
 
 
 if __name__ == "__main__":
