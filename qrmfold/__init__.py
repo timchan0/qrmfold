@@ -93,12 +93,12 @@ class QuantumReedMuller:
             subset: _vector_mult(*(self.classical.basis[i-1] for i in subset))
             for subset in itertools.combinations(range(1, m+1), m//2)
         }
-        self.logical_operators: dict[tuple[int, ...], list[stim.PauliString]] = {}
+        self.logical_operators: dict[tuple[int, ...], tuple[stim.PauliString, stim.PauliString]] = {}
         for subset, support in self.logical_x_supports.items():
             x = stim.PauliString('X' if p else 'I' for p in support)
             complement = tuple(k for k in range(1, m+1) if k not in subset)
             z = stim.PauliString('Z' if p else 'I' for p in self.logical_x_supports[complement])
-            self.logical_operators[subset] = [x, z]
+            self.logical_operators[subset] = (x, z)
         self.logical_index_to_subset = logical_index_to_subset_default(m) \
             if logical_index_to_subset is None else logical_index_to_subset
         self.subset_to_logical_index = {
@@ -158,6 +158,12 @@ class QuantumReedMuller:
                 raise ValueError("type_ must be 'P' or 'Q'")
         return automorphism
     
+    def q_automorphism_phase_type_product(self, pairs: Collection[tuple[int, int]]):
+        """Return the physical circuit of the product_{L subset of K} U_P(Q(L)), where K is the set of pairs."""
+        return sum((
+            self.automorphism('Q', l_subset).phase_type_circuit() for l_subset in powerset(pairs)
+        ), start=stim.Circuit())
+    
     def q_automorphism_phase_type_logical_action(self, pairs: Collection[tuple[int, int]]):
         """Return the logical action of the U_P(Q(K)) where K is the set of pairs."""
         circuit = stim.Circuit()
@@ -176,6 +182,7 @@ class QuantumReedMuller:
     def q_automorphism_phase_type_product_logical_action(self, pairs: Collection[tuple[int, int]]):
         """Return the logical action of the product_{L subset of K} U_P(Q(L)), where K is the set of pairs."""
         circuit = stim.Circuit()
+        circuit.append('I', self.logical_index_to_subset.keys(), ())
         if len(pairs) <= self.M//2 - 2:
             self._logical_action_helper(circuit, pairs, gates=['CZ'])
         elif len(pairs) == self.M//2 - 1:
@@ -206,6 +213,50 @@ class QuantumReedMuller:
                 for gate in gates:
                     circuit.append(gate, [logical_index, logical_index_prime], ())
                 encountered_qubits.add(logical_index_prime)
+
+
+    def _get_logical_tableau(self, physical_circuit: stim.Circuit):
+        """Get the logical tableau induced by `physical_circuit`.
+        
+        Require:
+        * `physical_circuit` preserves the stabilizer group.
+        """
+        xs: list[stim.PauliString] = []
+        zs: list[stim.PauliString] = []
+        for _, subset in sorted(self.logical_index_to_subset.items(), key=lambda item: item[0]):
+            for logical_operator, conjugated_generator_list in zip(
+                self.logical_operators[subset],
+                (xs, zs),
+                strict=True,
+            ):
+                transformed = logical_operator.after(physical_circuit)
+                transformed_logical_action = ''.join(signature_to_pauli[tuple(
+                    not transformed.commutes(observable) for observable in self.logical_operators[_subset]
+                )] for _, _subset in sorted(self.logical_index_to_subset.items(), key=lambda item: item[0])) # type: ignore
+
+                # construct logical representative
+                logical_representative = stim.PauliString()
+                for (_, _subset), pauli in zip(
+                    sorted(self.logical_index_to_subset.items(), key=lambda item: item[0]),
+                    transformed_logical_action,
+                    strict=True,
+                ):
+                    _x, _z = self.logical_operators[_subset]
+                    if pauli == 'X':
+                        logical_representative *= _x
+                    elif pauli == 'Y':
+                        logical_representative *= 1j * _x * _z
+                    elif pauli == 'Z':
+                        logical_representative *= _z
+                
+                phase_stabilizer = transformed * logical_representative
+                # extract phase
+                phase_exponent = (sign_to_power[phase_stabilizer.sign] + \
+                    len(phase_stabilizer.pauli_indices('Y'))) % 4
+
+                conjugated_generator_list.append(1j**phase_exponent * stim.PauliString(transformed_logical_action))
+        tableau = stim.Tableau.from_conjugated_generators(xs=xs, zs=zs)
+        return tableau
 
 
 def _p_automorphism(m: int, i: int, j: int):
@@ -381,11 +432,23 @@ def rref_gf2(matrix):
     return array
 
 
+signature_to_pauli = {
+    (False, False): '_',
+    (False, True): 'X',
+    (True, True): 'Y',
+    (True, False): 'Z',
+}
+"""Map from anticommutation with (X, Z) to the unique Pauli operator with that signature."""
+
+sign_to_power: dict[complex, int] = {1: 0, 1j: 1, -1: 2, -1j: 3}
+"""Map from Pauli string sign to exponent of i."""
+
+
 if __name__ == "__main__":
     m = 4
-    # print(logical_index_to_subset_default(m, start_index=1))
-    qrm = QuantumReedMuller(m, logical_index_to_subset=logical_index_to_subset_alternative(m, start_index=1))
-    circuit = qrm.automorphism('Q', []).phase_type_circuit()
-    logical_circuit = qrm.q_automorphism_phase_type_logical_action([])
-    print(logical_circuit.diagram())
-    print(logical_circuit.to_tableau())
+    qrm = QuantumReedMuller(
+        m,
+        logical_index_to_subset=logical_index_to_subset_alternative(m, start_index=1),
+    )
+    pairs = [(1, 2)]
+    physical_circuit = qrm.q_automorphism_phase_type_product(pairs)

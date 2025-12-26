@@ -1,9 +1,12 @@
 import pytest
 import numpy as np
 
-from qrmfold import QuantumReedMuller, rref_gf2
+from qrmfold import QuantumReedMuller, rref_gf2, sign_to_power
 
-sign_to_power = {1: 0, 1j: 1, -1: 2, -1j: 3}
+
+@pytest.fixture
+def qrms():
+    return {m: QuantumReedMuller(m) for m in range(2, 12, 2)}
 
 
 class TestCodespacePreservation:
@@ -11,8 +14,8 @@ class TestCodespacePreservation:
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
     @pytest.mark.parametrize("automorphism_type", ['P', 'Q'])
     @pytest.mark.parametrize("m", range(2, 10, 2))
-    def test_1_pair(self, m, automorphism_type, gate_type):
-        qrm = QuantumReedMuller(m)
+    def test_1_pair(self, m, automorphism_type, gate_type, qrms):
+        qrm = qrms[m]
         stabilizer_generators_bsf_rref = rref_gf2(qrm.stabilizer_generators_bsf())
         for k in range(0, m, 2):
             circuit = getattr(qrm.automorphism(automorphism_type, [(k+1, k+2)]), f"{gate_type}_type_circuit")()
@@ -29,8 +32,8 @@ class TestCodespacePreservation:
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
     @pytest.mark.parametrize("automorphism_type", ['P', 'Q'])
     @pytest.mark.parametrize("m", range(2, 12, 2))
-    def test_1_to_maximal_pair_count(self, m, automorphism_type, gate_type):
-        qrm = QuantumReedMuller(m)
+    def test_1_to_maximal_pair_count(self, m, automorphism_type, gate_type, qrms):
+        qrm = qrms[m]
         stabilizer_generators_bsf_rref = rref_gf2(qrm.stabilizer_generators_bsf())
         for pair_count in range(1, m//2 + 1):
             pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
@@ -47,8 +50,8 @@ class TestCodespacePreservation:
 
 
     @pytest.mark.parametrize("m", range(2, 10, 2))
-    def test_trivial_automorphism_phase_type(self, m):
-        qrm = QuantumReedMuller(m)
+    def test_trivial_automorphism_phase_type(self, m, qrms):
+        qrm = qrms[m]
         stabilizer_generators_bsf_rref = rref_gf2(qrm.stabilizer_generators_bsf())
         circuit = qrm.trivial_automorphism().phase_type_circuit()
         new_stabilizers_bsf: list[np.ndarray] = []
@@ -60,3 +63,30 @@ class TestCodespacePreservation:
                 new_stabilizers_bsf.append(np.append(xs, zs))
         new_stabilizers_bsf_rref = rref_gf2(np.array(new_stabilizers_bsf))
         assert np.array_equal(stabilizer_generators_bsf_rref, new_stabilizers_bsf_rref)
+
+
+class TestLogicalAction:
+
+    @pytest.mark.parametrize(
+            "m, pair_count",
+            [(m, pair_count) for m in range(2, 12, 2) for pair_count in range(m//2 + 1)],
+    )
+    def test_single_unitary(self, m: int, pair_count: int, qrms: dict[int, QuantumReedMuller]):
+        qrm = qrms[m]
+        pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
+        physical_circuit = qrm.automorphism('Q', pairs).phase_type_circuit()
+        realized_tableau = qrm._get_logical_tableau(physical_circuit)
+        target_tableau = qrm.q_automorphism_phase_type_logical_action(pairs).to_tableau()
+        assert realized_tableau == target_tableau
+
+    @pytest.mark.parametrize(
+            "m, pair_count",
+            [(m, pair_count) for m in range(2, 12, 2) for pair_count in range(m//2 + 1)],
+    )
+    def test_product_of_unitaries(self, m: int, pair_count: int, qrms: dict[int, QuantumReedMuller]):
+        qrm = qrms[m]
+        pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
+        physical_circuit = qrm.q_automorphism_phase_type_product(pairs)
+        realized_tableau = qrm._get_logical_tableau(physical_circuit)
+        target_tableau = qrm.q_automorphism_phase_type_product_logical_action(pairs).to_tableau()
+        assert target_tableau == realized_tableau
