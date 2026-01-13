@@ -167,6 +167,7 @@ class QuantumReedMuller:
     def q_automorphism_phase_type_logical_action(self, pairs: Collection[tuple[int, int]]):
         """Return the logical action of the U_P(Q(K)) where K is the set of pairs."""
         circuit = stim.Circuit()
+        circuit.append('I', self.logical_index_to_subset.keys(), ())
         for l_subset in powerset(pairs, self.M//2 - 2):
             self._logical_action_helper(circuit, l_subset, gates=['CZ'])
         if len(pairs) >= self.M//2 - 1:
