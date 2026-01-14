@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+import stim
 
 from qrmfold import QuantumReedMuller, rref_gf2, sign_to_power
 
@@ -90,3 +91,20 @@ class TestLogicalAction:
         realized_tableau = qrm._get_logical_tableau(physical_circuit)
         target_tableau = qrm.q_automorphism_phase_type_product_logical_action(pairs).to_tableau()
         assert target_tableau == realized_tableau
+
+
+class TestLogicalS:
+
+    @pytest.mark.parametrize("m", range(2, 8, 2))
+    def test_matching_tableau(self, m: int, qrms: dict[int, QuantumReedMuller]):
+        qrm = qrms[m]
+        for logical_index in qrm.logical_index_to_subset.keys():
+            physical_circuit = qrm.logical_s(logical_index)
+            realized_tableau = qrm._get_logical_tableau(physical_circuit)
+            
+            target_circuit = stim.Circuit()
+            target_circuit.append('I', qrm.logical_index_to_subset.keys(), ())
+            target_circuit.append('S', [logical_index], ())
+            target_tableau = target_circuit.to_tableau()
+            
+            assert target_tableau == realized_tableau

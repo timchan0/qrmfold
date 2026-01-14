@@ -207,6 +207,16 @@ class QuantumReedMuller:
         else:
             raise ValueError("pairs length cannot exceed m/2")
         return circuit
+    
+    def logical_s(self, logical_index: int):
+        """Return the physical circuit inducing logical S on the given logical qubit index."""
+        b_subset = self.logical_index_to_subset[logical_index]
+        b_complement = self._complement(b_subset)
+        pairs = list(zip(b_subset, b_complement, strict=True))
+        physical_circuit = self.q_automorphism_phase_type_product(pairs)
+        if self.M//2 % 2:
+            return physical_circuit.inverse()
+        return physical_circuit
 
     def _logical_action_helper(
             self,
@@ -214,18 +224,22 @@ class QuantumReedMuller:
             pairs: Collection[tuple[int, int]],
             gates: Sequence[str],
     ):
+        """Append gates in `gates` to `circuit` according to `pairs` whose length is <m/2."""
         arguments_0 = extract_arguments(0, pairs)
         arguments_1 = extract_arguments(1, pairs)
         encountered_qubits: set[int] = set()
         for logical_index, b_subset in self.logical_index_to_subset.items():
             if logical_index not in encountered_qubits and arguments_0.issubset(b_subset) and arguments_1.isdisjoint(b_subset):
-                b_complement = set(range(1, self.M+1)).difference(b_subset)
+                b_complement = self._complement(b_subset)
                 b_prime_subset = b_complement.union(arguments_0).difference(arguments_1)
                 logical_index_prime = self.subset_to_logical_index[frozenset(b_prime_subset)]
                 for gate in gates:
                     circuit.append(gate, [logical_index, logical_index_prime], ())
                 encountered_qubits.add(logical_index_prime)
 
+    def _complement(self, subset: Collection[int]):
+        """Return the complement of `subset` of [m]."""
+        return set(range(1, self.M+1)).difference(subset)
 
     def _get_logical_tableau(self, physical_circuit: stim.Circuit):
         """Get the logical tableau induced by `physical_circuit`.
