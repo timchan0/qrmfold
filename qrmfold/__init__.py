@@ -80,8 +80,7 @@ class QuantumReedMuller:
         * `logical_index_to_subset` a 1-to-1 map from logical qubit index to subset of [m] of cardinality m/2.
         If not specified, the subsets are ordered lexicographically.
         """
-        if m % 2:
-            raise ValueError("m must be even")
+        self._validate_init_inputs(m, logical_index_to_subset)
         self.M = m
         r = m//2 - 1
         self.classical = ReedMuller(r, m)
@@ -104,6 +103,18 @@ class QuantumReedMuller:
         self.subset_to_logical_index = {
             frozenset(subset): index for index, subset in self.logical_index_to_subset.items()
         }
+
+    @staticmethod
+    def _validate_init_inputs(m: int, logical_index_to_subset: None | dict[int, tuple[int, ...]]):
+        """Check that `m` is even and that `logical_index_to_subset` has the correct codomain."""
+        if m % 2:
+            raise ValueError("m must be even")
+        if logical_index_to_subset is None:
+            return
+        target: set[frozenset[int]] = {frozenset(subset) for subset in itertools.combinations(range(1, m+1), m//2)}
+        actual: set[frozenset[int]] = {frozenset(subset) for subset in logical_index_to_subset.values()}
+        if target != actual:
+            raise ValueError("self.logical_index_to_subset must be a 1-to-1 map from logical qubit index to subset of [m] of cardinality m/2.")
 
     def print(self):
         for basis in ('X', 'Z'):
