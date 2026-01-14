@@ -219,10 +219,37 @@ class QuantumReedMuller:
             raise ValueError("pairs length cannot exceed m/2")
         return circuit
     
-    def logical_s(self, logical_index: int):
-        """Return the physical circuit inducing logical S on the given logical qubit index."""
-        b_subset = set(self.logical_index_to_subset[logical_index])
-        return self._logical_s(b_subset)
+    def logical(
+            self,
+            gate: Literal['S', 'H', 'CZ_XX', 'SWAP'],
+            logical_indices: Iterable[int],
+    ):
+        """Return the physical circuit inducing logical `gate` on the given logical qubit index/indices."""
+        if gate in {'S', 'H'}:
+            try:
+                logical_index, = logical_indices
+            except ValueError:
+                raise ValueError(f"Logical gate {gate} requires exactly one logical index.")
+            b_subset = set(self.logical_index_to_subset[logical_index])
+            if gate == 'S':
+                return self._logical_s(b_subset)
+            return self._logical_h(b_subset)
+        try:
+            logical_index_0, logical_index_1 = logical_indices
+        except ValueError:
+            raise ValueError(f"Logical gate {gate} requires exactly two logical indices.")
+        restricted_gate = self._logical_swap_restricted if gate == 'SWAP' else self._logical_czxx_restricted
+        b_subset = set(self.logical_index_to_subset[logical_index_0])
+        b_prime_subset = set(self.logical_index_to_subset[logical_index_1])
+        intermediate_subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
+        if not intermediate_subsets:
+            return restricted_gate(b_subset, b_prime_subset)
+        entry = sum((
+            self._logical_swap_restricted(a, b) for a, b in
+            sliding_window([b_subset] + intermediate_subsets, 2)
+        ), start=stim.Circuit())
+        apex = restricted_gate(intermediate_subsets[-1], b_prime_subset)
+        return entry + apex + entry.inverse()
     
     def _logical_s(self, b_subset: set[int]):
         pairs = list(zip(b_subset, self._complement(b_subset), strict=True))
@@ -231,6 +258,11 @@ class QuantumReedMuller:
             return physical_circuit.inverse()
         return physical_circuit
 
+    def _logical_h(self, b_subset: set[int]):
+        s_b = self._logical_s(b_subset)
+        transversal_h = stim.Circuit(f'H {' '.join(str(k) for k in range(s_b.num_qubits))}')
+        s_b_complement = self._logical_s(self._complement(b_subset))
+        return s_b + transversal_h + s_b_complement + transversal_h + s_b
     
     def _logical_czxx_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
         """Return the physical circuit inducing logical CZ_XX on the given logical qubits,
@@ -243,17 +275,6 @@ class QuantumReedMuller:
         pairs = list(zip(arguments_0, arguments_1, strict=True))
         return self.q_automorphism_phase_type_product(pairs)
     
-    def logical_h(self, logical_index: int):
-        """Return the physical circuit inducing logical H on the given logical qubit index."""
-        b_subset = set(self.logical_index_to_subset[logical_index])
-        return self._logical_h(b_subset)
-
-    def _logical_h(self, b_subset: set[int]):
-        s_b = self._logical_s(b_subset)
-        transversal_h = stim.Circuit(f'H {' '.join(str(k) for k in range(s_b.num_qubits))}')
-        s_b_complement = self._logical_s(self._complement(b_subset))
-        return s_b + transversal_h + s_b_complement + transversal_h + s_b
-    
     def _logical_swap_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
         """Return the physical circuit inducing logical SWAP on the given logical qubits,
         where the logical qubits are labelled by subsets that differ by exactly one basis vector.
@@ -261,20 +282,6 @@ class QuantumReedMuller:
         czxx = self._logical_czxx_restricted(b_subset, b_prime_subset)
         hh = self._logical_h(b_subset) + self._logical_h(b_prime_subset)
         return 3 * (czxx + hh)
-    
-    def logical_swap(self, logical_index_0: int, logical_index_1: int):
-        """Return the physical circuit inducing logical SWAP on the given logical qubit indices."""
-        b_subset = set(self.logical_index_to_subset[logical_index_0])
-        b_prime_subset = set(self.logical_index_to_subset[logical_index_1])
-        intermediate_subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
-        if not intermediate_subsets:
-            return self._logical_swap_restricted(b_subset, b_prime_subset)
-        there = sum((
-            self._logical_swap_restricted(a, b) for a, b in
-            sliding_window([b_subset] + intermediate_subsets, 2)
-        ), start=stim.Circuit())
-        apex = self._logical_swap_restricted(intermediate_subsets[-1], b_prime_subset)
-        return there + apex + there.inverse()
 
     def _logical_action_helper(
             self,
