@@ -129,3 +129,20 @@ class TestLogicalCZXX:
                 target_tableau = target_circuit.to_tableau()
             
                 assert target_tableau == realized_tableau
+
+
+class TestLogicalH:
+
+    @pytest.mark.parametrize("m", range(2, 8, 2))
+    def test_matching_tableau(self, m: int, qrms: dict[int, QuantumReedMuller]):
+        qrm = qrms[m]
+        for logical_index in qrm.logical_index_to_subset.keys():
+            physical_circuit = qrm.logical_h(logical_index)
+            realized_tableau = qrm._get_logical_tableau(physical_circuit)
+            
+            target_circuit = stim.Circuit()
+            target_circuit.append('I', qrm.logical_index_to_subset.keys(), ())
+            target_circuit.append('H', [logical_index], ())
+            target_tableau = target_circuit.to_tableau()
+            
+            assert target_tableau == realized_tableau

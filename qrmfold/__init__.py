@@ -228,6 +228,16 @@ class QuantumReedMuller:
         arguments_1 = self._complement(b_subset.union(b_prime_subset))
         pairs = list(zip(arguments_0, arguments_1, strict=True))
         return self.q_automorphism_phase_type_product(pairs)
+    
+    def logical_h(self, logical_index: int):
+        """Return the physical circuit inducing logical H on the given logical qubit index."""
+        b_subset = self.logical_index_to_subset[logical_index]
+        b_complement = self._complement(b_subset)
+        complement_logical_index = self.subset_to_logical_index[frozenset(b_complement)]
+        s_b = self.logical_s(logical_index)
+        transversal_h = stim.Circuit(f'H {' '.join(str(k) for k in range(s_b.num_qubits))}')
+        s_b_complement = self.logical_s(complement_logical_index)
+        return s_b + transversal_h + s_b_complement + transversal_h + s_b
 
     def _logical_action_helper(
             self,
