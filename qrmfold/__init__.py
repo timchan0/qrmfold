@@ -217,6 +217,17 @@ class QuantumReedMuller:
         if self.M//2 % 2:
             return physical_circuit.inverse()
         return physical_circuit
+    
+    def logical_czxx(self, logical_index_0: int, logical_index_1: int):
+        """Return the physical circuit inducing logical CZ_XX on the given logical qubit indices."""
+        b_subset = set(self.logical_index_to_subset[logical_index_0])
+        b_prime_subset = set(self.logical_index_to_subset[logical_index_1])
+        arguments_0 = b_subset.intersection(b_prime_subset)
+        if len(arguments_0) != self.M//2 - 1:
+            raise ValueError(f"Logical qubit indices {b_subset}, {b_prime_subset} must differ by exactly one basis vector.")
+        arguments_1 = self._complement(b_subset.union(b_prime_subset))
+        pairs = list(zip(arguments_0, arguments_1, strict=True))
+        return self.q_automorphism_phase_type_product(pairs)
 
     def _logical_action_helper(
             self,
