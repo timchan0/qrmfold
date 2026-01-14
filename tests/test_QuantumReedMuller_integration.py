@@ -146,3 +146,22 @@ class TestLogicalH:
             target_tableau = target_circuit.to_tableau()
             
             assert target_tableau == realized_tableau
+
+
+class TestLogicalSwap:
+
+    @pytest.mark.parametrize("m", range(2, 8, 2))
+    def test_matching_tableau(self, m: int, qrms: dict[int, QuantumReedMuller]):
+        qrm = qrms[m]
+        for (i, i_subset), (j, j_subset) in itertools.combinations(qrm.logical_index_to_subset.items(), 2):
+            if len(set(i_subset).intersection(j_subset)) == qrm.M//2 - 1:
+                
+                physical_circuit = qrm.logical_swap(i, j)
+                realized_tableau = qrm._get_logical_tableau(physical_circuit)
+            
+                target_circuit = stim.Circuit()
+                target_circuit.append('I', qrm.logical_index_to_subset.keys(), ())
+                target_circuit.append('SWAP', [i, j], ())
+                target_tableau = target_circuit.to_tableau()
+            
+                assert target_tableau == realized_tableau

@@ -238,6 +238,12 @@ class QuantumReedMuller:
         transversal_h = stim.Circuit(f'H {' '.join(str(k) for k in range(s_b.num_qubits))}')
         s_b_complement = self.logical_s(complement_logical_index)
         return s_b + transversal_h + s_b_complement + transversal_h + s_b
+    
+    def logical_swap(self, logical_index_0: int, logical_index_1: int):
+        """Return the physical circuit inducing logical SWAP on the given logical qubit indices."""
+        czxx = self.logical_czxx(logical_index_0, logical_index_1)
+        hh = self.logical_h(logical_index_0) + self.logical_h(logical_index_1)
+        return 3 * (czxx + hh)
 
     def _logical_action_helper(
             self,
