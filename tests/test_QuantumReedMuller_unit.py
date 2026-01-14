@@ -1,4 +1,7 @@
-from qrmfold import QuantumReedMuller, _p_automorphism, _q_automorphism
+
+import pytest
+from qrmfold import QuantumReedMuller, _p_automorphism, _q_automorphism, _get_intermediate_subsets
+from qrmfold import sliding_window
 
 def test_p_automorphism():
     swaps = _p_automorphism(4, 1, 2)
@@ -39,3 +42,30 @@ def test_phase_type(qrm4: QuantumReedMuller):
     cz_gates, s_gates = qrm4.automorphism('Q', [(3, 4)]).phase_type()
     assert cz_gates == {(11, 15), (9, 13), (10, 14), (8, 12)}
     assert s_gates == {0, 3, 5, 6}.union({1, 2, 4, 7})
+
+
+class TestGetIntermediateSubsets:
+    
+    def test_empty_list(self):
+        """Empty list occurs when subsets differ by only one basis vector."""
+        b_subset = {1, 2}
+        b_prime_subset = {1, 3}
+        assert _get_intermediate_subsets(b_subset, b_prime_subset) == []
+    
+    @pytest.mark.parametrize(
+            "b_subset, b_prime_subset",
+            [
+                ({1, 2}, {3, 4}),
+                ({1, 2, 3}, {2, 3, 4}),
+                ({1, 2, 3}, {4, 5, 6}),
+            ],
+    )
+    def test_intermediate_subsets(
+            self,
+            b_subset: set[int],
+            b_prime_subset: set[int],
+    ):
+        subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
+        for a, b in sliding_window([b_subset] + subsets + [b_prime_subset], 2):
+            assert len(a.difference(b)) == 1
+            assert len(b.difference(a)) == 1

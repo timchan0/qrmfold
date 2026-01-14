@@ -1,6 +1,7 @@
+from collections import deque
 from collections.abc import Iterable, Collection, Sequence
 import itertools
-from itertools import chain, combinations
+from itertools import chain, combinations, islice
 from functools import reduce
 import math
 from typing import Literal
@@ -44,6 +45,16 @@ def powerset(pairs: Collection[tuple[int, int]], max_cardinality: None | int = N
 
 def extract_arguments(index: Literal[0, 1], l_subset: Iterable[tuple[int, int]]):
     return {pair[index] for pair in l_subset}
+
+
+def sliding_window(iterable: Iterable[set[int]], n: int):
+    "Collect data into overlapping fixed-length chunks or blocks."
+    # sliding_window('ABCDEFG', 3) → ABC BCD CDE DEF EFG
+    iterator = iter(iterable)
+    window = deque(islice(iterator, n - 1), maxlen=n)
+    for x in iterator:
+        window.append(x)
+        yield tuple(window)
 
 
 class ReedMuller:
@@ -210,18 +221,21 @@ class QuantumReedMuller:
     
     def logical_s(self, logical_index: int):
         """Return the physical circuit inducing logical S on the given logical qubit index."""
-        b_subset = self.logical_index_to_subset[logical_index]
-        b_complement = self._complement(b_subset)
-        pairs = list(zip(b_subset, b_complement, strict=True))
+        b_subset = set(self.logical_index_to_subset[logical_index])
+        return self._logical_s(b_subset)
+    
+    def _logical_s(self, b_subset: set[int]):
+        pairs = list(zip(b_subset, self._complement(b_subset), strict=True))
         physical_circuit = self.q_automorphism_phase_type_product(pairs)
         if self.M//2 % 2:
             return physical_circuit.inverse()
         return physical_circuit
+
     
-    def logical_czxx(self, logical_index_0: int, logical_index_1: int):
-        """Return the physical circuit inducing logical CZ_XX on the given logical qubit indices."""
-        b_subset = set(self.logical_index_to_subset[logical_index_0])
-        b_prime_subset = set(self.logical_index_to_subset[logical_index_1])
+    def _logical_czxx_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
+        """Return the physical circuit inducing logical CZ_XX on the given logical qubits,
+        where the logical qubits are labelled by subsets that differ by exactly one basis vector.
+        """
         arguments_0 = b_subset.intersection(b_prime_subset)
         if len(arguments_0) != self.M//2 - 1:
             raise ValueError(f"Logical qubit indices {b_subset}, {b_prime_subset} must differ by exactly one basis vector.")
@@ -231,19 +245,36 @@ class QuantumReedMuller:
     
     def logical_h(self, logical_index: int):
         """Return the physical circuit inducing logical H on the given logical qubit index."""
-        b_subset = self.logical_index_to_subset[logical_index]
-        b_complement = self._complement(b_subset)
-        complement_logical_index = self.subset_to_logical_index[frozenset(b_complement)]
-        s_b = self.logical_s(logical_index)
+        b_subset = set(self.logical_index_to_subset[logical_index])
+        return self._logical_h(b_subset)
+
+    def _logical_h(self, b_subset: set[int]):
+        s_b = self._logical_s(b_subset)
         transversal_h = stim.Circuit(f'H {' '.join(str(k) for k in range(s_b.num_qubits))}')
-        s_b_complement = self.logical_s(complement_logical_index)
+        s_b_complement = self._logical_s(self._complement(b_subset))
         return s_b + transversal_h + s_b_complement + transversal_h + s_b
+    
+    def _logical_swap_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
+        """Return the physical circuit inducing logical SWAP on the given logical qubits,
+        where the logical qubits are labelled by subsets that differ by exactly one basis vector.
+        """
+        czxx = self._logical_czxx_restricted(b_subset, b_prime_subset)
+        hh = self._logical_h(b_subset) + self._logical_h(b_prime_subset)
+        return 3 * (czxx + hh)
     
     def logical_swap(self, logical_index_0: int, logical_index_1: int):
         """Return the physical circuit inducing logical SWAP on the given logical qubit indices."""
-        czxx = self.logical_czxx(logical_index_0, logical_index_1)
-        hh = self.logical_h(logical_index_0) + self.logical_h(logical_index_1)
-        return 3 * (czxx + hh)
+        b_subset = set(self.logical_index_to_subset[logical_index_0])
+        b_prime_subset = set(self.logical_index_to_subset[logical_index_1])
+        intermediate_subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
+        if not intermediate_subsets:
+            return self._logical_swap_restricted(b_subset, b_prime_subset)
+        there = sum((
+            self._logical_swap_restricted(a, b) for a, b in
+            sliding_window([b_subset] + intermediate_subsets, 2)
+        ), start=stim.Circuit())
+        apex = self._logical_swap_restricted(intermediate_subsets[-1], b_prime_subset)
+        return there + apex + there.inverse()
 
     def _logical_action_helper(
             self,
@@ -361,6 +392,29 @@ def _all_bitstrings(length: int) -> tuple[str, ...]:
     if length == 0:
         return ('',)
     return tuple(np.binary_repr(k, width=length) for k in range(2**length))
+
+
+def _get_intermediate_subsets(b_subset: set[int], b_prime_subset: set[int]):
+    """Return a list of subsets `list_` such that
+    each subset in `[b_subset] + list_ + [b_prime_subset]`
+    differs from the previous one by exactly one basis vector.
+
+    Require: `b_subset` and `b_prime_subset` differ by at least one integer.
+    """
+    b_take_b_prime = b_subset.difference(b_prime_subset)
+    b_prime_take_b = b_prime_subset.difference(b_subset)
+    try:
+        b_take_b_prime.pop()
+        b_prime_take_b.pop()
+    except KeyError:
+        raise ValueError("b_subset and b_prime_subset must differ by at least one basis vector.")
+    intermediate_subsets: list[set[int]] = []
+    current_subset = b_subset.copy()
+    for i, j in zip(b_take_b_prime, b_prime_take_b, strict=True):
+        current_subset.remove(i)
+        current_subset.add(j)
+        intermediate_subsets.append(current_subset.copy())
+    return intermediate_subsets
     
 
 class Automorphism:
