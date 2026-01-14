@@ -1,9 +1,8 @@
-from qrmfold import QuantumReedMuller
-
+from qrmfold.quantum_reed_muller import QuantumReedMuller
 
 import pytest
 
 
 @pytest.fixture
-def qrm4():
-    return QuantumReedMuller(4)
+def qrms():
+    return {m: QuantumReedMuller(m) for m in range(2, 12, 2)}

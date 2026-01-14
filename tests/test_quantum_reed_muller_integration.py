@@ -4,15 +4,13 @@ import numpy as np
 import stim
 from typing import Literal
 
-from qrmfold import QuantumReedMuller, rref_gf2, sign_to_power
-
-
-@pytest.fixture
-def qrms():
-    return {m: QuantumReedMuller(m) for m in range(2, 12, 2)}
+from qrmfold.utils import sign_to_power
+from qrmfold.quantum_reed_muller import QuantumReedMuller
+from qrmfold.utils import rref_gf2
 
 
 class TestCodespacePreservation:
+    """Test the stabilizer group is preserved."""
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
     @pytest.mark.parametrize("automorphism_type", ['P', 'Q'])
@@ -69,6 +67,7 @@ class TestCodespacePreservation:
 
 
 class TestLogicalAction:
+    """Test for the correct logical action."""
 
     @pytest.mark.parametrize(
             "m, pair_count",
@@ -95,11 +94,26 @@ class TestLogicalAction:
         assert target_tableau == realized_tableau
 
 
-class TestLogical2QubitGateRestricted:
+class TestAddressableLogicalAction:
+
+    @pytest.mark.parametrize("m", range(2, 8, 2))
+    @pytest.mark.parametrize("gate", ['S', 'H'])
+    def test_1_qubit_gate(self, gate: Literal['S', 'H'], m: int, qrms: dict[int, QuantumReedMuller]):
+        qrm = qrms[m]
+        for logical_index in qrm.logical_index_to_subset.keys():
+            physical_circuit = qrm.logical(gate, [logical_index])
+            realized_tableau = qrm._get_logical_tableau(physical_circuit)
+            
+            target_circuit = stim.Circuit()
+            target_circuit.append('I', qrm.logical_index_to_subset.keys(), ())
+            target_circuit.append(gate, [logical_index], ())
+            target_tableau = target_circuit.to_tableau()
+            
+            assert target_tableau == realized_tableau
 
     @pytest.mark.parametrize("m", range(2, 8, 2))
     @pytest.mark.parametrize("gate", ['SWAP', 'CZ_XX'])
-    def test_matching_tableau(self, m: int, gate: Literal['SWAP', 'CZ_XX'], qrms: dict[int, QuantumReedMuller]):
+    def test_restricted_2_qubit_gate(self, m: int, gate: Literal['SWAP', 'CZ_XX'], qrms: dict[int, QuantumReedMuller]):
         qrm = qrms[m]
         to_test = qrm._logical_czxx_restricted if gate == 'CZ_XX' else qrm._logical_swap_restricted
         gates = ['CZ', 'Z'] if gate == 'CZ_XX' else ['SWAP']
@@ -118,24 +132,6 @@ class TestLogical2QubitGateRestricted:
                 target_tableau = target_circuit.to_tableau()
             
                 assert target_tableau == realized_tableau
-
-
-class TestLogical:
-
-    @pytest.mark.parametrize("m", range(2, 8, 2))
-    @pytest.mark.parametrize("gate", ['S', 'H'])
-    def test_1_qubit_gate(self, gate: Literal['S', 'H'], m: int, qrms: dict[int, QuantumReedMuller]):
-        qrm = qrms[m]
-        for logical_index in qrm.logical_index_to_subset.keys():
-            physical_circuit = qrm.logical(gate, [logical_index])
-            realized_tableau = qrm._get_logical_tableau(physical_circuit)
-            
-            target_circuit = stim.Circuit()
-            target_circuit.append('I', qrm.logical_index_to_subset.keys(), ())
-            target_circuit.append(gate, [logical_index], ())
-            target_tableau = target_circuit.to_tableau()
-            
-            assert target_tableau == realized_tableau
 
     @pytest.mark.parametrize("m", range(2, 6, 2))
     @pytest.mark.parametrize("gate", ['SWAP', 'CZ_XX'])
