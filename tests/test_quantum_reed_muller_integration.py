@@ -13,13 +13,19 @@ class TestCodespacePreservation:
     """Test the stabilizer group is preserved."""
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
-    @pytest.mark.parametrize("automorphism_type", ['P', 'Q'])
+    @pytest.mark.parametrize("type_", ['P', 'Q'])
     @pytest.mark.parametrize("m", range(2, 10, 2))
-    def test_1_pair(self, m, automorphism_type, gate_type, qrms):
+    def test_1_pair(
+        self,
+        m: int,
+        type_: Literal['P', 'Q'],
+        gate_type: Literal['swap', 'phase'],
+        qrms: dict[int, QuantumReedMuller],
+    ):
         qrm = qrms[m]
         stabilizer_generators_bsf_rref = rref_gf2(qrm.stabilizer_generators_bsf())
         for k in range(0, m, 2):
-            circuit = getattr(qrm.automorphism(automorphism_type, [(k+1, k+2)]), f"{gate_type}_type_circuit")()
+            circuit = qrm.automorphism(type_, [(k+1, k+2)]).gate(gate_type)
             new_stabilizers_bsf: list[np.ndarray] = []
             for basis_generators in qrm.stabilizer_generators.values():
                 for generator in basis_generators:
@@ -31,14 +37,20 @@ class TestCodespacePreservation:
             assert np.array_equal(stabilizer_generators_bsf_rref, new_stabilizers_bsf_rref)
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
-    @pytest.mark.parametrize("automorphism_type", ['P', 'Q'])
+    @pytest.mark.parametrize("type_", ['P', 'Q'])
     @pytest.mark.parametrize("m", range(2, 12, 2))
-    def test_1_to_maximal_pair_count(self, m, automorphism_type, gate_type, qrms):
+    def test_1_to_maximal_pair_count(
+        self,
+        m: int,
+        type_: Literal['P', 'Q'],
+        gate_type: Literal['swap', 'phase'],
+        qrms: dict[int, QuantumReedMuller],
+    ):
         qrm = qrms[m]
         stabilizer_generators_bsf_rref = rref_gf2(qrm.stabilizer_generators_bsf())
         for pair_count in range(1, m//2 + 1):
             pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
-            circuit = getattr(qrm.automorphism(automorphism_type, pairs), f"{gate_type}_type_circuit")()
+            circuit = qrm.automorphism(type_, pairs).gate(gate_type)
             new_stabilizers_bsf: list[np.ndarray] = []
             for basis_generators in qrm.stabilizer_generators.values():
                 for generator in basis_generators:
@@ -51,10 +63,10 @@ class TestCodespacePreservation:
 
 
     @pytest.mark.parametrize("m", range(2, 10, 2))
-    def test_trivial_automorphism_phase_type(self, m, qrms):
+    def test_trivial_automorphism_phase_type(self, m: int, qrms: dict[int, QuantumReedMuller]):
         qrm = qrms[m]
         stabilizer_generators_bsf_rref = rref_gf2(qrm.stabilizer_generators_bsf())
-        circuit = qrm.trivial_automorphism().phase_type_circuit()
+        circuit = qrm.automorphism().gate('phase')
         new_stabilizers_bsf: list[np.ndarray] = []
         for basis_generators in qrm.stabilizer_generators.values():
             for generator in basis_generators:
@@ -76,9 +88,9 @@ class TestLogicalAction:
     def test_single_unitary(self, m: int, pair_count: int, qrms: dict[int, QuantumReedMuller]):
         qrm = qrms[m]
         pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
-        physical_circuit = qrm.automorphism('Q', pairs).phase_type_circuit()
+        physical_circuit = qrm.automorphism('Q', pairs).gate('phase')
         realized_tableau = qrm._get_logical_tableau(physical_circuit)
-        target_tableau = qrm.q_automorphism_phase_type_logical_action(pairs).to_tableau()
+        target_tableau = qrm.q_phase_logical_action(pairs).to_tableau()
         assert realized_tableau == target_tableau
 
     @pytest.mark.parametrize(
@@ -88,35 +100,45 @@ class TestLogicalAction:
     def test_product_of_unitaries(self, m: int, pair_count: int, qrms: dict[int, QuantumReedMuller]):
         qrm = qrms[m]
         pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
-        physical_circuit = qrm.q_automorphism_phase_type_product(pairs)
+        physical_circuit = qrm.automorphism_product(pairs, type_='Q', gate_type='phase')
         realized_tableau = qrm._get_logical_tableau(physical_circuit)
-        target_tableau = qrm.q_automorphism_phase_type_product_logical_action(pairs).to_tableau()
+        target_tableau = qrm.q_phase_product_logical_action(pairs).to_tableau()
         assert target_tableau == realized_tableau
 
 
 class TestAddressableLogicalAction:
 
     @pytest.mark.parametrize("m", range(2, 8, 2))
-    @pytest.mark.parametrize("gate", ['S', 'H'])
-    def test_1_qubit_gate(self, gate: Literal['S', 'H'], m: int, qrms: dict[int, QuantumReedMuller]):
+    @pytest.mark.parametrize("name", ['S', 'H'])
+    def test_1_qubit_gate(
+        self,
+        qrms: dict[int, QuantumReedMuller],
+        m: int,
+        name: Literal['S', 'H'],
+    ):
         qrm = qrms[m]
         for logical_index in qrm.logical_index_to_subset.keys():
-            physical_circuit = qrm.logical(gate, [logical_index])
+            physical_circuit = qrm.gate(name, [logical_index])
             realized_tableau = qrm._get_logical_tableau(physical_circuit)
             
             target_circuit = stim.Circuit()
             target_circuit.append('I', qrm.logical_index_to_subset.keys(), ())
-            target_circuit.append(gate, [logical_index], ())
+            target_circuit.append(name, [logical_index], ())
             target_tableau = target_circuit.to_tableau()
             
             assert target_tableau == realized_tableau
 
     @pytest.mark.parametrize("m", range(2, 8, 2))
-    @pytest.mark.parametrize("gate", ['SWAP', 'CZ_XX'])
-    def test_restricted_2_qubit_gate(self, m: int, gate: Literal['SWAP', 'CZ_XX'], qrms: dict[int, QuantumReedMuller]):
+    @pytest.mark.parametrize("name", ['SWAP', 'CZ_XX'])
+    def test_restricted_2_qubit_gate(
+        self,
+        qrms: dict[int, QuantumReedMuller],
+        m: int,
+        name: Literal['SWAP', 'CZ_XX'],
+    ):
         qrm = qrms[m]
-        to_test = qrm._logical_czxx_restricted if gate == 'CZ_XX' else qrm._logical_swap_restricted
-        gates = ['CZ', 'Z'] if gate == 'CZ_XX' else ['SWAP']
+        to_test = qrm._czxx_restricted if name == 'CZ_XX' else qrm._swap_restricted
+        gates = ['CZ', 'Z'] if name == 'CZ_XX' else ['SWAP']
         for (i, i_tuple), (j, j_tuple) in itertools.combinations(qrm.logical_index_to_subset.items(), 2):
             i_subset = set(i_tuple)
             j_subset = set(j_tuple)
@@ -134,12 +156,17 @@ class TestAddressableLogicalAction:
                 assert target_tableau == realized_tableau
 
     @pytest.mark.parametrize("m", range(2, 6, 2))
-    @pytest.mark.parametrize("gate", ['SWAP', 'CZ_XX'])
-    def test_2_qubit_gate(self, gate: Literal['SWAP', 'CZ_XX'], m: int, qrms: dict[int, QuantumReedMuller]):
+    @pytest.mark.parametrize("name", ['SWAP', 'CZ_XX'])
+    def test_2_qubit_gate(
+        self,
+        qrms: dict[int, QuantumReedMuller],
+        m: int,
+        name: Literal['SWAP', 'CZ_XX'],
+    ):
         qrm = qrms[m]
-        gates = ['SWAP'] if gate == 'SWAP' else ['CZ', 'Z']
+        gates = ['SWAP'] if name == 'SWAP' else ['CZ', 'Z']
         for i, j in itertools.combinations(qrm.logical_index_to_subset.keys(), 2):
-            physical_circuit = qrm.logical(gate, [i, j])
+            physical_circuit = qrm.gate(name, [i, j])
             realized_tableau = qrm._get_logical_tableau(physical_circuit)
         
             target_circuit = stim.Circuit()

@@ -9,4 +9,4 @@ if __name__ == "__main__":
         logical_index_to_subset=logical_index_to_subset_maps.alternative(m, start_index=1),
     )
     pairs = [(1, 2)]
-    physical_circuit = qrm.q_automorphism_phase_type_product(pairs)
+    physical_circuit = qrm.automorphism_product(pairs)

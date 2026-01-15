@@ -178,47 +178,60 @@ class QuantumReedMuller:
                 stabilizers_bsf.append(np.append(xs, zs))
         return np.array(stabilizers_bsf)
 
-    def trivial_automorphism(self):
-        """The trivial automorphism that maps every element to itself."""
-        return Automorphism(self.M, [])
-
-    def automorphism(self, type_: Literal['P', 'Q'], pairs: Iterable[tuple[int, int]]):
-        """The automorphism P(i, j) or Q(i, j).
-
-        P(i, j) swaps basis vectors i and j (1-indexed).
-        Q(i, j) adds basis vector j onto basis vector i (1-indexed).
+    def automorphism(
+            self,
+            type_: Literal['trivial', 'P', 'Q'] = 'trivial',
+            pairs: None | Iterable[tuple[int, int]] = None,
+    ):
+        """Return a map from binary vectors to binary vectors.
 
         Input:
-        * `type_` 'P' or 'Q'.
+        * `type_` 'trivial' or 'P' or 'Q'.
+        The trivial automorphism maps every element to itself.
+        P(i, j) swaps basis vectors i and j (1-indexed).
+        Q(i, j) adds basis vector j onto basis vector i (1-indexed).
         * `pairs` an iterable of pairs of integers (i, j) with 1 <= i, j <= M.
         Each integer in `pairs` must be distinct.
+        If not specified, the trivial automorphism is returned.
 
         Output:
         * A list whose kth element is the position of binary vector k after the automorphism.
         """
-        automorphism = self.trivial_automorphism()
-        exhausted_indices: set[int] = set()
-        for i, j in pairs:
-            if not ((1 <= i <= self.M) and (1 <= j <= self.M)):
-                raise ValueError(f"i and j must be between 1 and {self.M}, inclusive")
-            if (pair:={i, j}) & exhausted_indices:
-                raise ValueError("Each integer in pairs must be distinct")
-            exhausted_indices.update(pair)
-            if type_ == 'P':
-                automorphism.update(_p_automorphism(self.M, i, j))
-            elif type_ == 'Q':
-                automorphism.update(_q_automorphism(self.M, i, j))
-            else:
-                raise ValueError("type_ must be 'P' or 'Q'")
+        automorphism = Automorphism(self.M, [])
+        if pairs is not None and type_ != 'trivial':
+            exhausted_indices: set[int] = set()
+            for i, j in pairs:
+                if not ((1 <= i <= self.M) and (1 <= j <= self.M)):
+                    raise ValueError(f"i and j must be between 1 and {self.M}, inclusive")
+                if (pair:={i, j}) & exhausted_indices:
+                    raise ValueError("Each integer in pairs must be distinct")
+                exhausted_indices.update(pair)
+                if type_ == 'P':
+                    automorphism.update(_p_automorphism(self.M, i, j))
+                elif type_ == 'Q':
+                    automorphism.update(_q_automorphism(self.M, i, j))
+                else:
+                    raise ValueError("type_ must be 'P' or 'Q'")
         return automorphism
 
-    def q_automorphism_phase_type_product(self, pairs: Collection[tuple[int, int]]):
-        """Return the physical circuit of the product_{L subset of K} U_P(Q(L)), where K is the set of pairs."""
+    def automorphism_product(
+            self,
+            pairs: None | Collection[tuple[int, int]] = None,
+            type_: Literal['trivial', 'P', 'Q'] = 'Q',
+            gate_type: Literal['swap', 'phase'] = 'phase',
+    ):
+        """Return the physical circuit of product_{L subset of K} U_t(a(L)),
+        where K is the set of pairs,
+        a is the automorphism (either P or Q),
+        and t is the gate type (either 'swap' or 'phase').
+        """
+        if pairs is None:
+            pairs = []
         return sum((
-            self.automorphism('Q', l_subset).phase_type_circuit() for l_subset in powerset(pairs)
+            self.automorphism(type_, l_subset).gate(gate_type) for l_subset in powerset(pairs)
         ), start=stim.Circuit())
 
-    def q_automorphism_phase_type_logical_action(self, pairs: Collection[tuple[int, int]]):
+    def q_phase_logical_action(self, pairs: Collection[tuple[int, int]]):
         """Return the logical action of the U_P(Q(K)) where K is the set of pairs."""
         circuit = stim.Circuit()
         circuit.append('I', self.logical_index_to_subset.keys(), ())
@@ -234,8 +247,8 @@ class QuantumReedMuller:
             circuit.append(gate, logical_index, ())
         return circuit
 
-    def q_automorphism_phase_type_product_logical_action(self, pairs: Collection[tuple[int, int]]):
-        """Return the logical action of the product_{L subset of K} U_P(Q(L)), where K is the set of pairs."""
+    def q_phase_product_logical_action(self, pairs: Collection[tuple[int, int]]):
+        """Return the logical action of product_{L subset of K} U_P(Q(L)) where K is the set of pairs."""
         circuit = stim.Circuit()
         circuit.append('I', self.logical_index_to_subset.keys(), ())
         if len(pairs) <= self.M//2 - 2:
@@ -251,68 +264,77 @@ class QuantumReedMuller:
             raise ValueError("pairs length cannot exceed m/2")
         return circuit
 
-    def logical(
+    def gate(
             self,
-            gate: Literal['S', 'H', 'CZ_XX', 'SWAP'],
-            logical_indices: Iterable[int],
+            name: Literal['S', 'H', 'CZ_XX', 'SWAP'],
+            targets: Iterable[int],
     ):
-        """Return the physical circuit inducing logical `gate` on the given logical qubit index/indices."""
-        if gate in {'S', 'H'}:
-            try:
-                logical_index, = logical_indices
-            except ValueError:
-                raise ValueError(f"Logical gate {gate} requires exactly one logical index.")
-            b_subset = set(self.logical_index_to_subset[logical_index])
-            if gate == 'S':
-                return self._logical_s(b_subset)
-            return self._logical_h(b_subset)
+        """Return the physical circuit inducing logical `name` on the given logical qubit targets.
+        
+        Input:
+        * `name` the name of the logical gate to implement.
+        Supported gates are 'S', 'H', 'CZ_XX', and 'SWAP'.
+        * `targets` the logical qubit indices to apply the gate on.
+        The gate will be broadcasted over targets,
+        so the 2-qubit gates require an even number of targets.
+        """
+        if name in {'S', 'H'}:
+            _gate = self._s if name == 'S' else self._h
+            return sum((_gate(
+                set(self.logical_index_to_subset[target])
+            ) for target in targets), start=stim.Circuit())
+        out = stim.Circuit()
         try:
-            logical_index_0, logical_index_1 = logical_indices
+            for target_0, target_1 in itertools.batched(targets, 2, strict=True):
+                _gate = self._swap_restricted if name == 'SWAP' else self._czxx_restricted
+                b_subset = set(self.logical_index_to_subset[target_0])
+                b_prime_subset = set(self.logical_index_to_subset[target_1])
+                intermediate_subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
+                if not intermediate_subsets:
+                    out += _gate(b_subset, b_prime_subset)
+                    continue
+                entry = sum((
+                    self._swap_restricted(a, b) for a, b in
+                    sliding_window([b_subset] + intermediate_subsets, 2)
+                ), start=stim.Circuit())
+                apex = _gate(intermediate_subsets[-1], b_prime_subset)
+                out += entry + apex + entry.inverse()
         except ValueError:
-            raise ValueError(f"Logical gate {gate} requires exactly two logical indices.")
-        restricted_gate = self._logical_swap_restricted if gate == 'SWAP' else self._logical_czxx_restricted
-        b_subset = set(self.logical_index_to_subset[logical_index_0])
-        b_prime_subset = set(self.logical_index_to_subset[logical_index_1])
-        intermediate_subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
-        if not intermediate_subsets:
-            return restricted_gate(b_subset, b_prime_subset)
-        entry = sum((
-            self._logical_swap_restricted(a, b) for a, b in
-            sliding_window([b_subset] + intermediate_subsets, 2)
-        ), start=stim.Circuit())
-        apex = restricted_gate(intermediate_subsets[-1], b_prime_subset)
-        return entry + apex + entry.inverse()
+            raise ValueError(f"2-qubit gate {name} requires an even target count but was given {targets}.")
+        return out
 
-    def _logical_s(self, b_subset: set[int]):
+    def _s(self, b_subset: set[int]):
+        """Return the physical circuit inducing logical S on the logical qubit labelled by `b_subset`."""
         pairs = list(zip(b_subset, self._complement(b_subset), strict=True))
-        physical_circuit = self.q_automorphism_phase_type_product(pairs)
+        out = self.automorphism_product(pairs, type_='Q', gate_type='phase')
         if self.M//2 % 2:
-            return physical_circuit.inverse()
-        return physical_circuit
+            return out.inverse()
+        return out
 
-    def _logical_h(self, b_subset: set[int]):
-        s_b = self._logical_s(b_subset)
+    def _h(self, b_subset: set[int]):
+        """Return the physical circuit inducing logical H on the logical qubit labelled by `b_subset`."""
+        s_b = self._s(b_subset)
         transversal_h = stim.Circuit(f'H {' '.join(str(k) for k in range(s_b.num_qubits))}')
-        s_b_complement = self._logical_s(self._complement(b_subset))
+        s_b_complement = self._s(self._complement(b_subset))
         return s_b + transversal_h + s_b_complement + transversal_h + s_b
 
-    def _logical_czxx_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
-        """Return the physical circuit inducing logical CZ_XX on the given logical qubits,
-        where the logical qubits are labelled by subsets that differ by exactly one basis vector.
+    def _czxx_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
+        """Return the physical circuit inducing logical CZ_XX on logical qubits
+        labelled by subsets that differ by exactly one basis vector.
         """
         arguments_0 = b_subset.intersection(b_prime_subset)
         if len(arguments_0) != self.M//2 - 1:
             raise ValueError(f"Logical qubit indices {b_subset}, {b_prime_subset} must differ by exactly one basis vector.")
         arguments_1 = self._complement(b_subset.union(b_prime_subset))
         pairs = list(zip(arguments_0, arguments_1, strict=True))
-        return self.q_automorphism_phase_type_product(pairs)
+        return self.automorphism_product(pairs, type_='Q', gate_type='phase')
 
-    def _logical_swap_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
-        """Return the physical circuit inducing logical SWAP on the given logical qubits,
-        where the logical qubits are labelled by subsets that differ by exactly one basis vector.
+    def _swap_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
+        """Return the physical circuit inducing logical SWAP on logical qubits
+        labelled by subsets that differ by exactly one basis vector.
         """
-        czxx = self._logical_czxx_restricted(b_subset, b_prime_subset)
-        hh = self._logical_h(b_subset) + self._logical_h(b_prime_subset)
+        czxx = self._czxx_restricted(b_subset, b_prime_subset)
+        hh = self._h(b_subset) + self._h(b_prime_subset)
         return 3 * (czxx + hh)
 
     def _logical_action_helper(
@@ -321,7 +343,10 @@ class QuantumReedMuller:
             pairs: Collection[tuple[int, int]],
             gates: Sequence[str],
     ):
-        """Append gates in `gates` to `circuit` according to `pairs` whose length is <m/2."""
+        """Helper for `q_phase_logical_action` and `q_phase_product_logical_action`.
+        
+        Append gates in `gates` to `circuit` according to `pairs` whose length is <m/2.
+        """
         arguments_0 = extract_arguments(0, pairs)
         arguments_1 = extract_arguments(1, pairs)
         encountered_qubits: set[int] = set()

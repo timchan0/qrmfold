@@ -1,3 +1,4 @@
+from typing import Literal
 import numpy as np
 import stim
 
@@ -26,19 +27,6 @@ class Automorphism:
     def __str__(self):
         return f"{list(range(2**self.M))} ->\n{self.positions}"
 
-    @classmethod
-    def from_positions(cls, m: int, positions: list[int]) -> 'Automorphism':
-        new = cls.__new__(cls)
-        new.M = m
-        new.positions = positions
-        return new
-
-    def compose(self, other: 'Automorphism') -> 'Automorphism':
-        if self.M != other.M:
-            raise ValueError("Cannot compose automorphisms of different sizes")
-        new_positions = [other.positions[p] for p in self.positions]
-        return Automorphism.from_positions(self.M, new_positions)
-
     def update(self, pairs: list[tuple[str, str]]):
         list_ = self.positions
         for label_1, label_2 in pairs:
@@ -54,7 +42,25 @@ class Automorphism:
             matrix[q, p] = 1
         return matrix
 
-    def swap_type(self):
+    def gate(self, type_: Literal['swap', 'phase']):
+        """Return the physical circuit U_t(a) of a (this automorphism),
+        where t is the gate type (either 'swap' or 'phase').
+        """
+        out = stim.Circuit()
+        if type_ == 'swap':
+            swap_gates = self._swap_type()
+            for q1, q2 in swap_gates:
+                out.append_operation("SWAP", [q1, q2])
+        elif type_ == 'phase':
+            cz_gates, s_gates = self._phase_type()
+            for q1, q2 in cz_gates:
+                out.append_operation("CZ", [q1, q2])
+            out.append_operation("S", s_gates)
+        else:
+            raise ValueError(f"Unknown gate type: {type_}")
+        return out
+
+    def _swap_type(self):
         swap_gates: set[tuple[int, int]] = set()
         encountered_qubits: set[int] = set()
         for row_index, position in enumerate(self.positions):
@@ -64,14 +70,7 @@ class Automorphism:
                 encountered_qubits.add(row_index)
         return swap_gates
 
-    def swap_type_circuit(self):
-        swap_gates = self.swap_type()
-        circuit = stim.Circuit()
-        for q1, q2 in swap_gates:
-            circuit.append_operation("SWAP", [q1, q2])
-        return circuit
-
-    def phase_type(self):
+    def _phase_type(self):
         cz_gates: set[tuple[int, int]] = set()
         encountered_qubits: set[int] = set()
         s_gates: set[int] = set()
@@ -83,11 +82,3 @@ class Automorphism:
                 encountered_qubits.add(position)
                 encountered_qubits.add(row_index)
         return cz_gates, s_gates
-
-    def phase_type_circuit(self):
-        cz_gates, s_gates = self.phase_type()
-        circuit = stim.Circuit()
-        for q1, q2 in cz_gates:
-            circuit.append_operation("CZ", [q1, q2])
-        circuit.append_operation("S", s_gates)
-        return circuit
