@@ -10,7 +10,7 @@ import stim
 
 from qrmfold import logical_index_to_subset_maps
 from qrmfold._automorphism import Automorphism
-from qrmfold.utils import all_bitstrings, extract_arguments, powerset, sign_to_power, sliding_window
+from qrmfold.utils import all_bitstrings, extract_arguments, powerset, sign_to_power
 
 
 class ReedMuller:
@@ -295,7 +295,7 @@ class QuantumReedMuller:
                     continue
                 entry = sum((
                     self._swap_restricted(a, b) for a, b in
-                    sliding_window([b_subset] + intermediate_subsets, 2)
+                    itertools.pairwise([b_subset] + intermediate_subsets)
                 ), start=stim.Circuit())
                 apex = _gate(intermediate_subsets[-1], b_prime_subset)
                 out += entry + apex + entry.inverse()

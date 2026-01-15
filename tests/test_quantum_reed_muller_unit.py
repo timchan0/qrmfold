@@ -1,8 +1,9 @@
+import itertools
+
 import pytest
 
 from qrmfold.quantum_reed_muller import _get_intermediate_subsets
 from qrmfold.quantum_reed_muller import QuantumReedMuller, _p_automorphism, _q_automorphism
-from qrmfold.utils import sliding_window
 
 
 def test_p_automorphism():
@@ -73,6 +74,6 @@ class TestGetIntermediateSubsets:
             b_prime_subset: set[int],
     ):
         subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
-        for a, b in sliding_window([b_subset] + subsets + [b_prime_subset], 2):
+        for a, b in itertools.pairwise([b_subset] + subsets + [b_prime_subset]):
             assert len(a.difference(b)) == 1
             assert len(b.difference(a)) == 1

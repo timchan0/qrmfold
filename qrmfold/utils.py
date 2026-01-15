@@ -1,6 +1,5 @@
-from collections import deque
 from collections.abc import Collection, Iterable
-from itertools import chain, combinations, islice
+from itertools import chain, combinations
 from typing import Literal
 
 import numpy as np
@@ -17,16 +16,6 @@ def powerset(pairs: Collection[tuple[int, int]], max_cardinality: None | int = N
 
 def extract_arguments(index: Literal[0, 1], l_subset: Iterable[tuple[int, int]]):
     return {pair[index] for pair in l_subset}
-
-
-def sliding_window(iterable: Iterable[set[int]], n: int):
-    "Collect data into overlapping fixed-length chunks or blocks."
-    # sliding_window('ABCDEFG', 3) → ABC BCD CDE DEF EFG
-    iterator = iter(iterable)
-    window = deque(islice(iterator, n - 1), maxlen=n)
-    for x in iterator:
-        window.append(x)
-        yield tuple(window)
 
 
 def all_bitstrings(length: int) -> tuple[str, ...]:
