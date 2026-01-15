@@ -9,7 +9,6 @@ dependencies:
   - pandas
   - pytest
   - snakeviz
-  - sage
   - hatch
   - pip
   - pip:
