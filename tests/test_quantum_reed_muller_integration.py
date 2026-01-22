@@ -129,16 +129,16 @@ class TestAddressableLogicalAction:
             assert target_tableau == realized_tableau
 
     @pytest.mark.parametrize("m", range(2, 8, 2))
-    @pytest.mark.parametrize("name", ['SWAP', 'CZ_XX'])
+    @pytest.mark.parametrize("name", ['SWAP', 'ZZCZ'])
     def test_restricted_2_qubit_gate(
         self,
         qrms: dict[int, QuantumReedMuller],
         m: int,
-        name: Literal['SWAP', 'CZ_XX'],
+        name: Literal['SWAP', 'ZZCZ'],
     ):
         qrm = qrms[m]
-        to_test = qrm._czxx_restricted if name == 'CZ_XX' else qrm._swap_restricted
-        gates = ['CZ', 'Z'] if name == 'CZ_XX' else ['SWAP']
+        to_test = qrm._zzcz_restricted if name == 'ZZCZ' else qrm._swap_restricted
+        gates = ['CZ', 'Z'] if name == 'ZZCZ' else ['SWAP']
         for (i, i_tuple), (j, j_tuple) in itertools.combinations(qrm.logical_index_to_subset.items(), 2):
             i_subset = set(i_tuple)
             j_subset = set(j_tuple)
@@ -156,12 +156,12 @@ class TestAddressableLogicalAction:
                 assert target_tableau == realized_tableau
 
     @pytest.mark.parametrize("m", range(2, 6, 2))
-    @pytest.mark.parametrize("name", ['SWAP', 'CZ_XX'])
+    @pytest.mark.parametrize("name", ['SWAP', 'ZZCZ'])
     def test_2_qubit_gate(
         self,
         qrms: dict[int, QuantumReedMuller],
         m: int,
-        name: Literal['SWAP', 'CZ_XX'],
+        name: Literal['SWAP', 'ZZCZ'],
     ):
         qrm = qrms[m]
         gates = ['SWAP'] if name == 'SWAP' else ['CZ', 'Z']

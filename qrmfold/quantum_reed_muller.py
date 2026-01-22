@@ -266,14 +266,14 @@ class QuantumReedMuller:
 
     def gate(
             self,
-            name: Literal['S', 'H', 'CZ_XX', 'SWAP'],
+            name: Literal['S', 'H', 'ZZCZ', 'SWAP'],
             targets: Iterable[int],
     ):
         """Return the physical circuit inducing logical `name` on the given logical qubit targets.
         
         Input:
         * `name` the name of the logical gate to implement.
-        Supported gates are 'S', 'H', 'CZ_XX', and 'SWAP'.
+        Supported gates are 'S', 'H', 'ZZCZ', and 'SWAP'.
         * `targets` the logical qubit indices to apply the gate on.
         The gate will be broadcasted over targets,
         so the 2-qubit gates require an even number of targets.
@@ -286,7 +286,7 @@ class QuantumReedMuller:
         out = stim.Circuit()
         try:
             for target_0, target_1 in itertools.batched(targets, 2, strict=True):
-                _gate = self._swap_restricted if name == 'SWAP' else self._czxx_restricted
+                _gate = self._swap_restricted if name == 'SWAP' else self._zzcz_restricted
                 b_subset = set(self.logical_index_to_subset[target_0])
                 b_prime_subset = set(self.logical_index_to_subset[target_1])
                 intermediate_subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
@@ -318,8 +318,8 @@ class QuantumReedMuller:
         s_b_complement = self._s(self._complement(b_subset))
         return s_b + transversal_h + s_b_complement + transversal_h + s_b
 
-    def _czxx_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
-        """Return the physical circuit inducing logical CZ_XX on logical qubits
+    def _zzcz_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
+        """Return the physical circuit inducing logical (ZZ)CZ on logical qubits
         labelled by subsets that differ by exactly one basis vector.
         """
         arguments_0 = b_subset.intersection(b_prime_subset)
@@ -333,9 +333,9 @@ class QuantumReedMuller:
         """Return the physical circuit inducing logical SWAP on logical qubits
         labelled by subsets that differ by exactly one basis vector.
         """
-        czxx = self._czxx_restricted(b_subset, b_prime_subset)
+        zzcz = self._zzcz_restricted(b_subset, b_prime_subset)
         hh = self._h(b_subset) + self._h(b_prime_subset)
-        return 3 * (czxx + hh)
+        return 3 * (zzcz + hh)
 
     def _logical_action_helper(
             self,

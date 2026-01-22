@@ -50,12 +50,12 @@ class Automorphism:
         if type_ == 'swap':
             swap_gates = self._swap_type()
             for q1, q2 in swap_gates:
-                out.append_operation("SWAP", [q1, q2])
+                out.append("SWAP", [q1, q2])
         elif type_ == 'phase':
             cz_gates, s_gates = self._phase_type()
             for q1, q2 in cz_gates:
-                out.append_operation("CZ", [q1, q2])
-            out.append_operation("S", s_gates)
+                out.append("CZ", [q1, q2])
+            out.append("S", s_gates)
         else:
             raise ValueError(f"Unknown gate type: {type_}")
         return out
