@@ -1,16 +1,18 @@
 from collections.abc import Collection, Iterable, Sequence
 import itertools
-from functools import reduce
+from functools import reduce, cached_property
 import math
 from typing import Literal
 
 import numpy as np
+from numpy import typing as npt
 from reedmuller.reedmuller import _vector_mult
 import stim
 
 from qrmfold import logical_index_to_subset_maps
 from qrmfold._automorphism import Automorphism
-from qrmfold.utils import all_bitstrings, extract_arguments, powerset, sign_to_power
+from qrmfold._depth_reducer import DepthReducer
+from qrmfold.utils import all_bitstrings, extract_arguments, powerset, sign_to_power, rref_gf2
 
 
 class ReedMuller:
@@ -169,14 +171,15 @@ class QuantumReedMuller:
         for logical_index, subset in self.logical_index_to_subset.items():
             print(f'{logical_index:{digit_count}d}', subset, [str(pauli) for pauli in self.logical_operators[subset]])
 
-    def stabilizer_generators_bsf(self):
-        """Return the stabilizer generators in binary symplectic form as a numpy array."""
-        stabilizers_bsf: list[np.ndarray] = []
+    @cached_property
+    def stabilizer_generators_rref(self):
+        """The stabilizer generators as a binary symplectic matrix in reduced row echelon form."""
+        stabilizers_bsf: list[npt.NDArray[np.bool_]] = []
         for basis_generators in self.stabilizer_generators.values():
             for generator in basis_generators:
                 xs, zs = generator.to_numpy()
                 stabilizers_bsf.append(np.append(xs, zs))
-        return np.array(stabilizers_bsf)
+        return rref_gf2(stabilizers_bsf)
 
     def automorphism(
             self,
@@ -268,6 +271,7 @@ class QuantumReedMuller:
             self,
             name: Literal['S', 'H', 'ZZCZ', 'SWAP'],
             targets: Iterable[int],
+            reduce_depth: bool = True,
     ):
         """Return the physical circuit inducing logical `name` on the given logical qubit targets.
         
@@ -278,29 +282,20 @@ class QuantumReedMuller:
         The gate will be broadcasted over targets,
         so the 2-qubit gates require an even number of targets.
         """
-        if name in {'S', 'H'}:
+        if name == 'S' or name == 'H':
             _gate = self._s if name == 'S' else self._h
-            return sum((_gate(
+            out = sum((_gate(
                 set(self.logical_index_to_subset[target])
             ) for target in targets), start=stim.Circuit())
-        out = stim.Circuit()
-        try:
-            for target_0, target_1 in itertools.batched(targets, 2, strict=True):
-                _gate = self._swap_restricted if name == 'SWAP' else self._zzcz_restricted
-                b_subset = set(self.logical_index_to_subset[target_0])
-                b_prime_subset = set(self.logical_index_to_subset[target_1])
-                intermediate_subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
-                if not intermediate_subsets:
-                    out += _gate(b_subset, b_prime_subset)
-                    continue
-                entry = sum((
-                    self._swap_restricted(a, b) for a, b in
-                    itertools.pairwise([b_subset] + intermediate_subsets)
-                ), start=stim.Circuit())
-                apex = _gate(intermediate_subsets[-1], b_prime_subset)
-                out += entry + apex + entry.inverse()
-        except ValueError:
-            raise ValueError(f"2-qubit gate {name} requires an even target count but was given {targets}.")
+        else:
+            out = stim.Circuit()
+            try:
+                for target_0, target_1 in itertools.batched(targets, 2, strict=True):
+                    out += self._2_qubit_gate(target_0, target_1, name)
+            except ValueError:
+                raise ValueError(f"2-qubit gate {name} requires an even target count but was given {targets}.")
+        if reduce_depth:
+            return DepthReducer.reduce(out)
         return out
 
     def _s(self, b_subset: set[int]):
@@ -317,6 +312,26 @@ class QuantumReedMuller:
         transversal_h = stim.Circuit(f'H {' '.join(str(k) for k in range(s_b.num_qubits))}')
         s_b_complement = self._s(self._complement(b_subset))
         return s_b + transversal_h + s_b_complement + transversal_h + s_b
+    
+    def _2_qubit_gate(self, target_0: int, target_1: int, name: Literal['SWAP', 'ZZCZ']):
+        """Return the physical circuit inducing logical `name` on the given logical qubit targets.
+        
+        Input:
+        * `target_0`, `target_1` the logical qubit indices to apply the gate on.
+        * `name` the name of the 2-qubit logical gate to implement.
+        """
+        _gate = self._swap_restricted if name == 'SWAP' else self._zzcz_restricted
+        b_subset = set(self.logical_index_to_subset[target_0])
+        b_prime_subset = set(self.logical_index_to_subset[target_1])
+        intermediate_subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
+        if not intermediate_subsets:
+            return _gate(b_subset, b_prime_subset)
+        entry = sum((
+            self._swap_restricted(a, b) for a, b in
+            itertools.pairwise([b_subset] + intermediate_subsets)
+        ), start=stim.Circuit())
+        apex = _gate(intermediate_subsets[-1], b_prime_subset)
+        return entry + apex + entry.inverse()
 
     def _zzcz_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
         """Return the physical circuit inducing logical (ZZ)CZ on logical qubits

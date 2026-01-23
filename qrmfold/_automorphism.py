@@ -1,4 +1,6 @@
 from typing import Literal
+import itertools
+
 import numpy as np
 import stim
 
@@ -49,36 +51,40 @@ class Automorphism:
         out = stim.Circuit()
         if type_ == 'swap':
             swap_gates = self._swap_type()
-            for q1, q2 in swap_gates:
-                out.append("SWAP", [q1, q2])
+            out.append("SWAP", itertools.chain.from_iterable(swap_gates), ())
         elif type_ == 'phase':
             cz_gates, s_gates = self._phase_type()
-            for q1, q2 in cz_gates:
-                out.append("CZ", [q1, q2])
-            out.append("S", s_gates)
+            out.append("CZ", itertools.chain.from_iterable(cz_gates), ())
+            out.append("S", s_gates, ())
         else:
             raise ValueError(f"Unknown gate type: {type_}")
         return out
 
     def _swap_type(self):
-        swap_gates: set[tuple[int, int]] = set()
-        encountered_qubits: set[int] = set()
+        """
+        The swap-type gates of the automorphism.
+        
+        :return: A set of unordered pairs, each representing a SWAP gate between two qubits.
+        """
+        swap_gates: set[frozenset[int]] = set()
         for row_index, position in enumerate(self.positions):
-            if row_index not in encountered_qubits and row_index != position:
-                swap_gates.add((row_index, position))
-                encountered_qubits.add(position)
-                encountered_qubits.add(row_index)
+            if row_index < position:
+                swap_gates.add(frozenset({row_index, position}))
         return swap_gates
 
     def _phase_type(self):
-        cz_gates: set[tuple[int, int]] = set()
-        encountered_qubits: set[int] = set()
+        """
+        The phase-type gates of the automorphism.
+        
+        :return: A pair of:
+        - cz_gates: A set of unordered pairs, each representing a CZ gate between two qubits.
+        - s_gates: A set of integers, each representing a qubit with an S gate applied.
+        """
+        cz_gates: set[frozenset[int]] = set()
         s_gates: set[int] = set()
         for row_index, position in enumerate(self.positions):
             if row_index == position:
                 s_gates.add(row_index)
-            elif row_index not in encountered_qubits:
-                cz_gates.add((row_index, position))
-                encountered_qubits.add(position)
-                encountered_qubits.add(row_index)
+            elif row_index < position:
+                cz_gates.add(frozenset({row_index, position}))
         return cz_gates, s_gates

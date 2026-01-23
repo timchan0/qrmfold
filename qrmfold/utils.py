@@ -3,6 +3,7 @@ from itertools import chain, combinations
 from typing import Literal
 
 import numpy as np
+from numpy import typing as npt
 
 
 # adapted from itertools recipes
@@ -25,10 +26,10 @@ def all_bitstrings(length: int) -> tuple[str, ...]:
     return tuple(np.binary_repr(k, width=length) for k in range(2**length))
 
 
-def rref_gf2(matrix):
+def rref_gf2(matrix: list[npt.NDArray[np.bool_]]):
     """Compute the reduced row echelon form of a binary matrix over GF(2)."""
     # TODO: use galois package instead https://stackoverflow.com/questions/56856378/fast-computation-of-matrix-rank-over-gf2
-    array = np.array(matrix, dtype=int)
+    array = np.array(matrix, dtype=np.int_)
     rows, cols = array.shape
     pivot_row = 0
 

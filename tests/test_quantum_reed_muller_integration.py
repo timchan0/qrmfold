@@ -1,8 +1,10 @@
 import itertools
+from typing import Literal
+
 import pytest
 import numpy as np
+from numpy import typing as npt
 import stim
-from typing import Literal
 
 from qrmfold.utils import sign_to_power
 from qrmfold.quantum_reed_muller import QuantumReedMuller
@@ -11,6 +13,21 @@ from qrmfold.utils import rref_gf2
 
 class TestCodespacePreservation:
     """Test the stabilizer group is preserved."""
+
+    def _helper(
+            self,
+            qrm: QuantumReedMuller,
+            circuit: stim.Circuit,
+    ):
+        new_stabilizers_bsf: list[npt.NDArray[np.bool_]] = []
+        for basis_generators in qrm.stabilizer_generators.values():
+            for generator in basis_generators:
+                morphed = generator.after(circuit)
+                assert (sign_to_power[morphed.sign] + str(morphed).count('Y')) % 4 == 0
+                xs, zs =  morphed.to_numpy()
+                new_stabilizers_bsf.append(np.append(xs, zs))
+        new_stabilizer_generators_rref = rref_gf2(new_stabilizers_bsf)
+        assert np.array_equal(new_stabilizer_generators_rref, qrm.stabilizer_generators_rref)
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
     @pytest.mark.parametrize("type_", ['P', 'Q'])
@@ -23,18 +40,9 @@ class TestCodespacePreservation:
         qrms: dict[int, QuantumReedMuller],
     ):
         qrm = qrms[m]
-        stabilizer_generators_bsf_rref = rref_gf2(qrm.stabilizer_generators_bsf())
         for k in range(0, m, 2):
             circuit = qrm.automorphism(type_, [(k+1, k+2)]).gate(gate_type)
-            new_stabilizers_bsf: list[np.ndarray] = []
-            for basis_generators in qrm.stabilizer_generators.values():
-                for generator in basis_generators:
-                    morphed = generator.after(circuit)
-                    assert (sign_to_power[morphed.sign] + str(morphed).count('Y')) % 4 == 0, f"Failed for (i, j) = {(k+1, k+2)}"
-                    xs, zs =  morphed.to_numpy()
-                    new_stabilizers_bsf.append(np.append(xs, zs))
-            new_stabilizers_bsf_rref = rref_gf2(np.array(new_stabilizers_bsf))
-            assert np.array_equal(stabilizer_generators_bsf_rref, new_stabilizers_bsf_rref)
+            self._helper(qrm, circuit)
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
     @pytest.mark.parametrize("type_", ['P', 'Q'])
@@ -47,35 +55,31 @@ class TestCodespacePreservation:
         qrms: dict[int, QuantumReedMuller],
     ):
         qrm = qrms[m]
-        stabilizer_generators_bsf_rref = rref_gf2(qrm.stabilizer_generators_bsf())
         for pair_count in range(1, m//2 + 1):
             pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
             circuit = qrm.automorphism(type_, pairs).gate(gate_type)
-            new_stabilizers_bsf: list[np.ndarray] = []
-            for basis_generators in qrm.stabilizer_generators.values():
-                for generator in basis_generators:
-                    morphed = generator.after(circuit)
-                    assert (sign_to_power[morphed.sign] + str(morphed).count('Y')) % 4 == 0, f"Failed for pairs = {pairs}"
-                    xs, zs =  morphed.to_numpy()
-                    new_stabilizers_bsf.append(np.append(xs, zs))
-            new_stabilizers_bsf_rref = rref_gf2(np.array(new_stabilizers_bsf))
-            assert np.array_equal(stabilizer_generators_bsf_rref, new_stabilizers_bsf_rref)
-
+            self._helper(qrm, circuit)
 
     @pytest.mark.parametrize("m", range(2, 10, 2))
     def test_trivial_automorphism_phase_type(self, m: int, qrms: dict[int, QuantumReedMuller]):
         qrm = qrms[m]
-        stabilizer_generators_bsf_rref = rref_gf2(qrm.stabilizer_generators_bsf())
         circuit = qrm.automorphism().gate('phase')
-        new_stabilizers_bsf: list[np.ndarray] = []
-        for basis_generators in qrm.stabilizer_generators.values():
-            for generator in basis_generators:
-                morphed = generator.after(circuit)
-                assert (sign_to_power[morphed.sign] + str(morphed).count('Y')) % 4 == 0
-                xs, zs =  morphed.to_numpy()
-                new_stabilizers_bsf.append(np.append(xs, zs))
-        new_stabilizers_bsf_rref = rref_gf2(np.array(new_stabilizers_bsf))
-        assert np.array_equal(stabilizer_generators_bsf_rref, new_stabilizers_bsf_rref)
+        self._helper(qrm, circuit)
+
+    @pytest.mark.parametrize("reduce_depth", (False, True))
+    @pytest.mark.parametrize("name", ('ZZCZ', 'SWAP'))
+    @pytest.mark.parametrize("m", range(2, 6, 2))
+    def test_addressable_gate(
+        self,
+        m: int,
+        name: Literal['ZZCZ', 'SWAP'],
+        reduce_depth: bool,
+        qrms: dict[int, QuantumReedMuller],
+    ):
+        qrm = qrms[m]
+        for j, k in itertools.combinations(qrm.logical_index_to_subset.keys(), 2):
+            circuit = qrm.gate(name, [j, k], reduce_depth=reduce_depth)
+            self._helper(qrm, circuit)
 
 
 class TestLogicalAction:
@@ -108,6 +112,7 @@ class TestLogicalAction:
 
 class TestAddressableLogicalAction:
 
+    @pytest.mark.parametrize("reduce_depth", (False, True))
     @pytest.mark.parametrize("m", range(2, 8, 2))
     @pytest.mark.parametrize("name", ['S', 'H'])
     def test_1_qubit_gate(
@@ -115,10 +120,11 @@ class TestAddressableLogicalAction:
         qrms: dict[int, QuantumReedMuller],
         m: int,
         name: Literal['S', 'H'],
+        reduce_depth: bool,
     ):
         qrm = qrms[m]
         for logical_index in qrm.logical_index_to_subset.keys():
-            physical_circuit = qrm.gate(name, [logical_index])
+            physical_circuit = qrm.gate(name, [logical_index], reduce_depth=reduce_depth)
             realized_tableau = qrm._get_logical_tableau(physical_circuit)
             
             target_circuit = stim.Circuit()
@@ -155,6 +161,7 @@ class TestAddressableLogicalAction:
             
                 assert target_tableau == realized_tableau
 
+    @pytest.mark.parametrize("reduce_depth", (False, True))
     @pytest.mark.parametrize("m", range(2, 6, 2))
     @pytest.mark.parametrize("name", ['SWAP', 'ZZCZ'])
     def test_2_qubit_gate(
@@ -162,11 +169,12 @@ class TestAddressableLogicalAction:
         qrms: dict[int, QuantumReedMuller],
         m: int,
         name: Literal['SWAP', 'ZZCZ'],
+        reduce_depth: bool,
     ):
         qrm = qrms[m]
         gates = ['SWAP'] if name == 'SWAP' else ['CZ', 'Z']
         for i, j in itertools.combinations(qrm.logical_index_to_subset.keys(), 2):
-            physical_circuit = qrm.gate(name, [i, j])
+            physical_circuit = qrm.gate(name, [i, j], reduce_depth=reduce_depth)
             realized_tableau = qrm._get_logical_tableau(physical_circuit)
         
             target_circuit = stim.Circuit()
