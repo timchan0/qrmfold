@@ -6,17 +6,19 @@ import stim
 
 
 class Automorphism:
-    """An automorphism of of 2^m elements represented as a list of positions.
+    """An automorphism of ``2**m`` elements represented as a permutation.
 
-    Instance attributes:
-    * `M` the bit count of the binary vector labels.
-    * `positions` a list whose kth element is the position of binary vector k after the automorphism.
+    :ivar M: Bit count of the binary vector labels.
+    :ivar positions: A list such that ``positions[k]`` is the position of binary
+        vector ``k`` after applying the automorphism.
     """
 
     def __init__(self, m: int, pairs: list[tuple[str, str]]):
-        """Input:
-        * `m` the bit count of the binary vector labels.
-        * `pairs` a list of pairs of binary vector labels, each representing a swap.
+        """Create an automorphism from a list of swaps.
+
+        :param m: Bit count of the binary vector labels.
+        :param pairs: List of label pairs ``(label_1, label_2)`` (binary strings)
+            specifying swaps.
         """
         self.M = m
         list_ = list(range(2**m))
@@ -38,15 +40,22 @@ class Automorphism:
 
     @property
     def matrix(self):
-        """Represent as an n x n matrix."""
-        matrix = np.zeros((self.M**2, self.M**2), dtype=int)
+        """Represent the automorphism as a permutation matrix.
+
+        :returns out: An n x n numpy array ``out`` such that applying the automorphism
+            corresponds to multiplying by ``out``.
+        """
+        out = np.zeros((self.M**2, self.M**2), dtype=int)
         for p, q in enumerate(self.positions):
-            matrix[q, p] = 1
-        return matrix
+            out[q, p] = 1
+        return out
 
     def gate(self, type_: Literal['swap', 'phase']):
-        """Return the physical circuit U_t(a) of a (this automorphism),
-        where t is the gate type (either 'swap' or 'phase').
+        """Return the physical circuit for this automorphism.
+
+        :param type_: Gate type (``'swap'`` or ``'phase'``).
+        :returns: A ``stim.Circuit`` for this automorphism.
+        :raises ValueError: If ``type_`` is not recognized.
         """
         out = stim.Circuit()
         if type_ == 'swap':
@@ -61,10 +70,10 @@ class Automorphism:
         return out
 
     def _swap_type(self):
-        """
-        The swap-type gates of the automorphism.
-        
-        :return: A set of unordered pairs, each representing a SWAP gate between two qubits.
+        """Compute the SWAP-type gate for this automorphism.
+
+        :returns: A set of unordered pairs, each representing a SWAP gate between
+            two qubits.
         """
         swap_gates: set[frozenset[int]] = set()
         for row_index, position in enumerate(self.positions):
@@ -73,12 +82,11 @@ class Automorphism:
         return swap_gates
 
     def _phase_type(self):
-        """
-        The phase-type gates of the automorphism.
-        
-        :return: A pair of:
-        - cz_gates: A set of unordered pairs, each representing a CZ gate between two qubits.
-        - s_gates: A set of integers, each representing a qubit with an S gate applied.
+        """Compute the phase-type gate for this automorphism.
+
+        :returns: A pair ``(cz_gates, s_gates)`` where ``cz_gates`` is a set of
+            unordered pairs representing CZ gates, and ``s_gates`` is a set of
+            qubit indices where an S gate is applied.
         """
         cz_gates: set[frozenset[int]] = set()
         s_gates: set[int] = set()

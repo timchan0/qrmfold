@@ -8,7 +8,12 @@ from numpy import typing as npt
 
 # adapted from itertools recipes
 def powerset(pairs: Collection[tuple[int, int]], max_cardinality: None | int = None):
-    """Subsequences of the collection `pairs` from shortest to longest."""
+    """Iterate subsequences of ``pairs`` from shortest to longest.
+
+    :param pairs: Collection of pairs to take subsets from.
+    :param max_cardinality: Optional cap on subset size.
+    :returns: An iterator over tuples representing subsets.
+    """
     # powerset([1,2,3]) → () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
     if max_cardinality is None:
         max_cardinality = len(pairs)
@@ -16,18 +21,32 @@ def powerset(pairs: Collection[tuple[int, int]], max_cardinality: None | int = N
 
 
 def extract_arguments(index: Literal[0, 1], l_subset: Iterable[tuple[int, int]]):
+    """Extract the set of arguments at a given position from a pair iterable.
+
+    :param index: Which element of each pair to extract (0 or 1).
+    :param l_subset: Iterable of integer pairs.
+    :returns: A set of extracted integers.
+    """
     return {pair[index] for pair in l_subset}
 
 
 def all_bitstrings(length: int) -> tuple[str, ...]:
-    """Generate a tuple of all bitstrings of the given length."""
+    """Generate all bitstrings of a given length.
+
+    :param length: Bitstring length.
+    :returns: A tuple of all bitstrings of the given length.
+    """
     if length == 0:
         return ('',)
     return tuple(np.binary_repr(k, width=length) for k in range(2**length))
 
 
 def rref_gf2(matrix: list[npt.NDArray[np.bool_]]):
-    """Compute the reduced row echelon form of a binary matrix over GF(2)."""
+    """Compute the reduced row echelon form of a binary matrix over GF(2).
+
+    :param matrix: List of row vectors.
+    :returns: The reduced row echelon form as a numpy array of integers.
+    """
     # TODO: use galois package instead https://stackoverflow.com/questions/56856378/fast-computation-of-matrix-rank-over-gf2
     array = np.array(matrix, dtype=np.int_)
     rows, cols = array.shape
@@ -58,4 +77,4 @@ def rref_gf2(matrix: list[npt.NDArray[np.bool_]]):
 
 
 sign_to_power: dict[complex, int] = {1: 0, 1j: 1, -1: 2, -1j: 3}
-"""Map from Pauli string sign to exponent of i."""
+"""Map from a Pauli string sign to the exponent of ``i``."""

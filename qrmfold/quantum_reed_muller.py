@@ -16,7 +16,10 @@ from qrmfold.utils import all_bitstrings, extract_arguments, powerset, sign_to_p
 
 
 class ReedMuller:
-    """Inspired by `reedmuller.reedmuller.ReedMuller`."""
+    """Classical Reed--Muller code.
+
+    Inspired by ``reedmuller.reedmuller.ReedMuller``.
+    """
 
     def __init__(self, r: int, m: int):
         self.R = r
@@ -29,15 +32,25 @@ class ReedMuller:
                               for S in itertools.combinations(range(m), s)]
 
     def _construct_vector(self, i: int) -> list[int]:
-        """Construct the vector for x_i of length 2^m, which has form:
-        A string of 2^i 0s followed by 2^i 1s, repeated
-        2^m / (2*2^i) = 2^{m-1}/2^i = 2^{m-1-i} times.
-        NOTE: we must have 0 <= i < m.
+        """Construct the vector for ``x_i`` of length ``2**m``.
+
+        The vector is a string of ``2**i`` zeros followed by ``2**i`` ones,
+        repeated ``2**(m - i - 1)`` times.
+
+        :param i: Basis index, with ``0 <= i < m``.
+        :returns: The length-``2**m`` vector for ``x_i``.
         """
         return ([0] * 2**i + [1] * 2**i) * 2 ** (self.M-i-1)
 
 
 def _get_residual_slices(m: int, i: int, j: int):
+    """Generate residual bitstring slices used by the automorphisms.
+
+    :param m: Bit count of the binary vector labels.
+    :param i: First basis index (1-indexed).
+    :param j: Second basis index (1-indexed).
+    :returns: An iterator over triples of residual bitstrings.
+    """
     smaller, larger = min(i, j), max(i, j)
     residual_1 = all_bitstrings(m-larger)
     residual_2 = all_bitstrings(larger-1-smaller)
@@ -46,12 +59,14 @@ def _get_residual_slices(m: int, i: int, j: int):
 
 
 def _p_automorphism(m: int, i: int, j: int):
-    """Swap basis vectors i and j (1-indexed).
+    """Swap basis vectors ``i`` and ``j`` (1-indexed).
 
-    Output:
-    * A set of pairs of bit indices that are swapped.
-    The first element in each pair has a 0 in position i and a 1 in position j,
-    and the second element has a 1 in position i and a 0 in position j.
+    :param m: Bit count of the binary vector labels.
+    :param i: First basis index (1-indexed).
+    :param j: Second basis index (1-indexed).
+    :returns: A list of swapped label pairs ``(s1, s2)``. For each pair, ``s1``
+        has a 0 in position ``i`` and a 1 in position ``j``, and ``s2`` has a 1
+        in position ``i`` and a 0 in position ``j``.
     """
     result: list[tuple[str, str]] = []
     for a, b, c in _get_residual_slices(m, i, j):
@@ -62,12 +77,14 @@ def _p_automorphism(m: int, i: int, j: int):
 
 
 def _q_automorphism(m: int, i: int, j: int):
-    """Add basis vector j onto basis vector i (1-indexed).
+    """Add basis vector ``j`` onto basis vector ``i`` (1-indexed).
 
-    Output:
-    * A set of pairs of bit indices that are swapped.
-    The first element in each pair has a 0 in position i and a 1 in position j,
-    and the second element has a 1 in position i and a 1 in position j.
+    :param m: Bit count of the binary vector labels.
+    :param i: Target basis index (1-indexed).
+    :param j: Source basis index (1-indexed).
+    :returns: A list of swapped label pairs ``(s1, s2)``. For each pair, ``s1``
+        has a 0 in position ``i`` and a 1 in position ``j``, and ``s2`` has a 1
+        in position ``i`` and a 1 in position ``j``.
     """
     if i < j:
         s1_larger, s1_smaller = '1', '0'
@@ -82,11 +99,15 @@ def _q_automorphism(m: int, i: int, j: int):
 
 
 def _get_intermediate_subsets(b_subset: set[int], b_prime_subset: set[int]):
-    """Return a list of subsets `list_` such that
-    each subset in `[b_subset] + list_ + [b_prime_subset]`
-    differs from the previous one by exactly one basis vector.
+    """Compute intermediate subsets between two subsets.
 
-    Require: `b_subset` and `b_prime_subset` differ by at least one integer.
+    :param b_subset: Starting subset.
+    :param b_prime_subset: Ending subset.
+    :returns intermediate_subsets: A list such that each subset in
+        ``[b_subset] + intermediate_subsets + [b_prime_subset]``
+        differs from the previous one by exactly one element.
+    :raises ValueError: If ``b_subset`` and ``b_prime_subset`` do not differ by
+        at least one element.
     """
     b_take_b_prime = b_subset.difference(b_prime_subset)
     b_prime_take_b = b_prime_subset.difference(b_subset)
@@ -120,10 +141,14 @@ class QuantumReedMuller:
             m: int,
             logical_index_to_subset: None | dict[int, tuple[int, ...]] = None,
     ):
-        """Input:
-        * `m` the bit count of the binary vector labels (must be even).
-        * `logical_index_to_subset` a 1-to-1 map from logical qubit index to subset of [m] of cardinality m/2.
-        If not specified, the subsets are ordered lexicographically.
+        """Create a quantum Reed--Muller code instance.
+
+        :param m: Bit count of the binary vector labels. Must be even.
+        :param logical_index_to_subset: Optional 1-to-1 map from logical qubit
+            index to a subset of ``[m]`` of cardinality ``m/2``. If not
+            specified, subsets are ordered lexicographically.
+        :raises ValueError: If ``m`` is odd, or if ``logical_index_to_subset``
+            does not have the required codomain.
         """
         self._validate_init_inputs(m, logical_index_to_subset)
         self.M = m
@@ -151,7 +176,14 @@ class QuantumReedMuller:
 
     @staticmethod
     def _validate_init_inputs(m: int, logical_index_to_subset: None | dict[int, tuple[int, ...]]):
-        """Check that `m` is even and that `logical_index_to_subset` has the correct codomain."""
+        """Validate constructor inputs.
+
+        :param m: Bit count of the binary vector labels.
+        :param logical_index_to_subset: Candidate map from logical index to
+            subset.
+        :raises ValueError: If ``m`` is odd or if ``logical_index_to_subset``
+            does not have the required codomain.
+        """
         if m % 2:
             raise ValueError("m must be even")
         if logical_index_to_subset is None:
@@ -186,19 +218,20 @@ class QuantumReedMuller:
             type_: Literal['trivial', 'P', 'Q'] = 'trivial',
             pairs: None | Iterable[tuple[int, int]] = None,
     ):
-        """Return a map from binary vectors to binary vectors.
+        """Construct an automorphism on ``2**m`` elements.
 
-        Input:
-        * `type_` 'trivial' or 'P' or 'Q'.
-        The trivial automorphism maps every element to itself.
-        P(i, j) swaps basis vectors i and j (1-indexed).
-        Q(i, j) adds basis vector j onto basis vector i (1-indexed).
-        * `pairs` an iterable of pairs of integers (i, j) with 1 <= i, j <= M.
-        Each integer in `pairs` must be distinct.
-        If not specified, the trivial automorphism is returned.
-
-        Output:
-        * A list whose kth element is the position of binary vector k after the automorphism.
+        :param type_: 'trivial', 'P', or 'Q'.
+            The trivial automorphism maps every element to itself.
+            P(i, j) swaps basis vectors i and j (1-indexed).
+            Q(i, j) adds basis vector j onto basis vector i (1-indexed).
+        :param pairs: Iterable of integer pairs ``(i, j)`` with
+            ``1 <= i, j <= M``. Each integer in ``pairs`` must be distinct.
+            If omitted (or if ``type_ == 'trivial'``), the trivial automorphism
+            is returned.
+        :returns: A :class:`qrmfold._automorphism.Automorphism` describing the
+            permutation.
+        :raises ValueError: If any index is out of range, if indices repeat, or
+            if ``type_`` is not one of ``'trivial'``, ``'P'``, or ``'Q'``.
         """
         automorphism = Automorphism(self.M, [])
         if pairs is not None and type_ != 'trivial':
@@ -223,10 +256,12 @@ class QuantumReedMuller:
             type_: Literal['trivial', 'P', 'Q'] = 'Q',
             gate_type: Literal['swap', 'phase'] = 'phase',
     ):
-        """Return the physical circuit of product_{L subset of K} U_t(a(L)),
-        where K is the set of pairs,
-        a is the automorphism (either P or Q),
-        and t is the gate type (either 'swap' or 'phase').
+        """Return the physical circuit of ``\\prod_{L \\subseteq K} U_t(a(L))``.
+
+        :param pairs: Set ``K`` of pairs. If ``None``, treated as empty.
+        :param type_: Automorphism ``a`` (``'trivial'``, ``'P'``, or ``'Q'``).
+        :param gate_type: Gate type ``t`` (``'swap'`` or ``'phase'``).
+        :returns: A ``stim.Circuit`` of the product.
         """
         if pairs is None:
             pairs = []
@@ -235,7 +270,11 @@ class QuantumReedMuller:
         ), start=stim.Circuit())
 
     def q_phase_logical_action(self, pairs: Collection[tuple[int, int]]):
-        """Return the logical action of the U_P(Q(K)) where K is the set of pairs."""
+        """Compute the logical action of ``U_P(Q(K))``.
+
+        :param pairs: Set ``K`` of pairs.
+        :returns: A ``stim.Circuit`` acting on logical qubits.
+        """
         circuit = stim.Circuit()
         circuit.append('I', self.logical_index_to_subset.keys(), ())
         for l_subset in powerset(pairs, self.M//2 - 2):
@@ -251,7 +290,12 @@ class QuantumReedMuller:
         return circuit
 
     def q_phase_product_logical_action(self, pairs: Collection[tuple[int, int]]):
-        """Return the logical action of product_{L subset of K} U_P(Q(L)) where K is the set of pairs."""
+        """Compute the logical action of ``\\prod_{L \\subseteq K} U_P(Q(L))``.
+
+        :param pairs: Set ``K`` of pairs.
+        :returns: A ``stim.Circuit`` acting on logical qubits.
+        :raises ValueError: If ``len(pairs)`` exceeds ``m/2``.
+        """
         circuit = stim.Circuit()
         circuit.append('I', self.logical_index_to_subset.keys(), ())
         if len(pairs) <= self.M//2 - 2:
@@ -273,14 +317,18 @@ class QuantumReedMuller:
             targets: Iterable[int],
             reduce_depth: bool = True,
     ):
-        """Return the physical circuit inducing logical `name` on the given logical qubit targets.
-        
-        Input:
-        * `name` the name of the logical gate to implement.
-        Supported gates are 'S', 'H', 'ZZCZ', and 'SWAP'.
-        * `targets` the logical qubit indices to apply the gate on.
-        The gate will be broadcasted over targets,
-        so the 2-qubit gates require an even number of targets.
+        """Build the physical circuit inducing a logical gate.
+
+        :param name: The name of the logical gate to implement.
+            Supported values are ``'S'``, ``'H'``,
+            ``'ZZCZ'``, and ``'SWAP'``.
+        :param targets: Logical qubit indices to apply the gate on. For 2-qubit
+            gates, the operation is broadcast over consecutive pairs of targets,
+            so an even number of targets is required.
+        :param reduce_depth: If ``True``, apply basic depth reduction before returning.
+        :returns: A ``stim.Circuit`` inducing the requested logical action.
+        :raises ValueError: If a 2-qubit gate is requested with an odd number of
+            targets.
         """
         if name == 'S' or name == 'H':
             _gate = self._s if name == 'S' else self._h
@@ -299,7 +347,11 @@ class QuantumReedMuller:
         return out
 
     def _s(self, b_subset: set[int]):
-        """Return the physical circuit inducing logical S on the logical qubit labelled by `b_subset`."""
+        """Build the physical circuit inducing a logical S.
+
+        :param b_subset: Logical qubit label as a subset of ``[m]``.
+        :returns: A ``stim.Circuit`` inducing the logical S on that qubit.
+        """
         pairs = list(zip(b_subset, self._complement(b_subset), strict=True))
         out = self.automorphism_product(pairs, type_='Q', gate_type='phase')
         if self.M//2 % 2:
@@ -307,18 +359,23 @@ class QuantumReedMuller:
         return out
 
     def _h(self, b_subset: set[int]):
-        """Return the physical circuit inducing logical H on the logical qubit labelled by `b_subset`."""
+        """Build the physical circuit inducing a logical H.
+
+        :param b_subset: Logical qubit label as a subset of ``[m]``.
+        :returns: A ``stim.Circuit`` inducing the logical H on that qubit.
+        """
         s_b = self._s(b_subset)
         transversal_h = stim.Circuit(f'H {' '.join(str(k) for k in range(s_b.num_qubits))}')
         s_b_complement = self._s(self._complement(b_subset))
         return s_b + transversal_h + s_b_complement + transversal_h + s_b
     
     def _2_qubit_gate(self, target_0: int, target_1: int, name: Literal['SWAP', 'ZZCZ']):
-        """Return the physical circuit inducing logical `name` on the given logical qubit targets.
-        
-        Input:
-        * `target_0`, `target_1` the logical qubit indices to apply the gate on.
-        * `name` the name of the 2-qubit logical gate to implement.
+        """Build a physical circuit implementing a 2-qubit logical gate.
+
+        :param target_0: First logical qubit index.
+        :param target_1: Second logical qubit index.
+        :param name: 2-qubit logical gate name (``'SWAP'`` or ``'ZZCZ'``).
+        :returns: A ``stim.Circuit`` inducing the requested logical action.
         """
         _gate = self._swap_restricted if name == 'SWAP' else self._zzcz_restricted
         b_subset = set(self.logical_index_to_subset[target_0])
@@ -334,8 +391,16 @@ class QuantumReedMuller:
         return entry + apex + entry.inverse()
 
     def _zzcz_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
-        """Return the physical circuit inducing logical (ZZ)CZ on logical qubits
-        labelled by subsets that differ by exactly one basis vector.
+        """Build the physical circuit inducing a logical (ZZ)CZ.
+
+        The two logical qubits must be labelled by subsets that differ by
+        exactly one basis vector.
+
+        :param b_subset: First logical label.
+        :param b_prime_subset: Second logical label.
+        :returns: A ``stim.Circuit`` implementing the restricted (ZZ)CZ.
+        :raises ValueError: If the subsets do not differ by exactly one basis
+            vector.
         """
         arguments_0 = b_subset.intersection(b_prime_subset)
         if len(arguments_0) != self.M//2 - 1:
@@ -345,8 +410,14 @@ class QuantumReedMuller:
         return self.automorphism_product(pairs, type_='Q', gate_type='phase')
 
     def _swap_restricted(self, b_subset: set[int], b_prime_subset: set[int]):
-        """Return the physical circuit inducing logical SWAP on logical qubits
-        labelled by subsets that differ by exactly one basis vector.
+        """Build the physical circuit inducing a logical SWAP.
+
+        The two logical qubits must be labelled by subsets that differ by
+        exactly one basis vector.
+
+        :param b_subset: First logical label.
+        :param b_prime_subset: Second logical label.
+        :returns: A ``stim.Circuit`` implementing the restricted logical SWAP.
         """
         zzcz = self._zzcz_restricted(b_subset, b_prime_subset)
         hh = self._h(b_subset) + self._h(b_prime_subset)
@@ -358,9 +429,12 @@ class QuantumReedMuller:
             pairs: Collection[tuple[int, int]],
             gates: Sequence[str],
     ):
-        """Helper for `q_phase_logical_action` and `q_phase_product_logical_action`.
-        
-        Append gates in `gates` to `circuit` according to `pairs` whose length is <m/2.
+        """Helper for :meth:`q_phase_logical_action` and :meth:`q_phase_product_logical_action`.
+
+        :param circuit: Circuit to append to.
+        :param pairs: Pair set ``K`` (see caller) with ``len(pairs) < m/2``.
+        :param gates: Gate names to append for each affected logical qubit pair.
+        :returns: ``None``. Mutates ``circuit`` in-place.
         """
         arguments_0 = extract_arguments(0, pairs)
         arguments_1 = extract_arguments(1, pairs)
@@ -375,14 +449,19 @@ class QuantumReedMuller:
                 encountered_qubits.add(logical_index_prime)
 
     def _complement(self, subset: Collection[int]):
-        """Return the complement of `subset` of [m]."""
+        """Return the complement of a subset of ``[m]``.
+
+        :param subset: Subset of ``[m]``.
+        :returns: The complement of ``subset`` within ``{1, ..., m}``.
+        """
         return set(range(1, self.M+1)).difference(subset)
 
     def _get_logical_tableau(self, physical_circuit: stim.Circuit):
-        """Get the logical tableau induced by `physical_circuit`.
+        """Compute the logical tableau induced by a physical circuit.
 
-        Require:
-        * `physical_circuit` preserves the stabilizer group.
+        :param physical_circuit: Physical circuit assumed to preserve the
+            stabilizer group.
+        :returns: The induced logical tableau.
         """
         xs: list[stim.PauliString] = []
         zs: list[stim.PauliString] = []
