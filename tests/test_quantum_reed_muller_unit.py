@@ -3,7 +3,15 @@ import itertools
 import pytest
 
 from qrmfold.quantum_reed_muller import _get_intermediate_subsets
-from qrmfold.quantum_reed_muller import QuantumReedMuller, _p_automorphism, _q_automorphism
+from qrmfold.quantum_reed_muller import ReedMuller, QuantumReedMuller, _p_automorphism, _q_automorphism
+
+
+@pytest.mark.parametrize("m", range(2, 12, 2))
+def test_minimize_weight(m: int):
+    for r in range(1, m//2):
+        rm = ReedMuller(r, m, minimize_weight=True)
+        for row in rm.generator_matrix:
+            assert sum(row) == 2**(m//2 + 1)
 
 
 def test_p_automorphism():

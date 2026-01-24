@@ -1,18 +1,18 @@
 from collections.abc import Collection, Iterable, Sequence
 import itertools
-from functools import reduce, cached_property
+from functools import cached_property
 import math
 from typing import Literal
 
 import numpy as np
 from numpy import typing as npt
-from reedmuller.reedmuller import _vector_mult
+from reedmuller.reedmuller import _vector_mult, _vector_neg
 import stim
 
 from qrmfold import logical_index_to_subset_maps
 from qrmfold._automorphism import Automorphism
 from qrmfold._depth_reducer import DepthReducer
-from qrmfold.utils import all_bitstrings, extract_arguments, powerset, sign_to_power, rref_gf2
+from qrmfold.utils import all_bitstrings, complement, extract_arguments, powerset, sign_to_power, rref_gf2
 
 
 class ReedMuller:
@@ -21,26 +21,42 @@ class ReedMuller:
     Inspired by ``reedmuller.reedmuller.ReedMuller``.
     """
 
-    def __init__(self, r: int, m: int):
+    def __init__(self, r: int, m: int, minimize_weight: bool = True):
         self.R = r
         self.M = m
-        # Construct all of the x_i rows.
-        self.basis = [self._construct_vector(i) for i in range(m)]
-        # For every s-set S for all 0 <= s <= r, create the row that is the product of the x_j vectors for j in S.
-        self.generator_matrix: list[list[int]] = [reduce(_vector_mult, [self.basis[i] for i in S], [1] * (2 ** m))
-                              for s in range(r + 1)
-                              for S in itertools.combinations(range(m), s)]
+        self.BASIS = tuple(self._construct_basis_vector(i) for i in range(m))
+        """Basis vectors x_i for the Reed-Muller code."""
 
-    def _construct_vector(self, i: int) -> list[int]:
-        """Construct the vector for ``x_i`` of length ``2**m``.
 
-        The vector is a string of ``2**i`` zeros followed by ``2**i`` ones,
-        repeated ``2**(m - i - 1)`` times.
+        _all_ones = [1] * 2**m
+        _generator_matrix: list[list[int]] = []
+        _basis_neg = tuple(_vector_neg(v) for v in self.BASIS)
+        for cardinality in range(r + 1):
+            for subset in itertools.combinations(range(m), cardinality):
+                vector_subset = [self.BASIS[i] for i in subset]
+                generator: list[int] = _all_ones if not subset else _vector_mult(*vector_subset)
+                
+                if minimize_weight:
+                    c = m//2 - 1 - cardinality
+                    _complement = complement(m, subset, start=0)
+                    additional_vectors = [_basis_neg[i] for i in _complement][:c]
+                    generator = _vector_mult(generator, *additional_vectors)
+                
+                _generator_matrix.append(generator)
+        self.generator_matrix = _generator_matrix
+        """Matrix with a row for every subset of the basis of cardinality at most r."""
 
-        :param i: Basis index, with ``0 <= i < m``.
-        :returns: The length-``2**m`` vector for ``x_i``.
+    def _construct_basis_vector(self, index: int):
+        """Construct the vector for ``x_index`` of length ``2**m``.
+
+        The vector is a string of ``2**index`` zeros followed by ``2**index`` ones,
+        repeated ``2**(m - index - 1)`` times.
+
+        :param index: Basis index, with ``0 <= index < m``.
+        :returns: The length-``2**m`` vector for ``x_index``.
         """
-        return ([0] * 2**i + [1] * 2**i) * 2 ** (self.M-i-1)
+        list_: list[int] = ([0] * 2**index + [1] * 2**index) * 2 ** (self.M-index-1)
+        return tuple(list_)
 
 
 def _get_residual_slices(m: int, i: int, j: int):
@@ -139,11 +155,14 @@ class QuantumReedMuller:
     def __init__(
             self,
             m: int,
-            logical_index_to_subset: None | dict[int, tuple[int, ...]] = None,
+            minimize_weight: bool = True,
+            logical_index_to_subset: None | dict[int, set[int]] = None,
     ):
         """Create a quantum Reed--Muller code instance.
 
         :param m: Bit count of the binary vector labels. Must be even.
+        :param minimize_weight: Whether to minimize the weight
+            of each stabilizer generator to ``2**(m//2 + 1)``.
         :param logical_index_to_subset: Optional 1-to-1 map from logical qubit
             index to a subset of ``[m]`` of cardinality ``m/2``. If not
             specified, subsets are ordered lexicographically.
@@ -153,20 +172,20 @@ class QuantumReedMuller:
         self._validate_init_inputs(m, logical_index_to_subset)
         self.M = m
         r = m//2 - 1
-        self.classical = ReedMuller(r, m)
+        self.classical = ReedMuller(r, m, minimize_weight=minimize_weight)
         self.stabilizer_generators = {
             basis: [stim.PauliString(basis if p else 'I' for p in g) for g in self.classical.generator_matrix]
             for basis in ('X', 'Z')
         }
-        self.logical_x_supports: dict[tuple[int, ...], list[int]] = {
-            subset: _vector_mult(*(self.classical.basis[i-1] for i in subset))
+        self.logical_x_supports: dict[frozenset[int], list[int]] = {
+            frozenset(subset): _vector_mult(*(self.classical.BASIS[i-1] for i in subset))
             for subset in itertools.combinations(range(1, m+1), m//2)
         }
-        self.logical_operators: dict[tuple[int, ...], tuple[stim.PauliString, stim.PauliString]] = {}
+        self.logical_operators: dict[frozenset[int], tuple[stim.PauliString, stim.PauliString]] = {}
         for subset, support in self.logical_x_supports.items():
             x = stim.PauliString('X' if p else 'I' for p in support)
-            complement = tuple(k for k in range(1, m+1) if k not in subset)
-            z = stim.PauliString('Z' if p else 'I' for p in self.logical_x_supports[complement])
+            _complement = frozenset(complement(m, subset))
+            z = stim.PauliString('Z' if p else 'I' for p in self.logical_x_supports[_complement])
             self.logical_operators[subset] = (x, z)
         self.logical_index_to_subset = logical_index_to_subset_maps.default(m) \
             if logical_index_to_subset is None else logical_index_to_subset
@@ -175,7 +194,7 @@ class QuantumReedMuller:
         }
 
     @staticmethod
-    def _validate_init_inputs(m: int, logical_index_to_subset: None | dict[int, tuple[int, ...]]):
+    def _validate_init_inputs(m: int, logical_index_to_subset: None | dict[int, set[int]]):
         """Validate constructor inputs.
 
         :param m: Bit count of the binary vector labels.
@@ -201,7 +220,11 @@ class QuantumReedMuller:
         print('logical operators:')
         digit_count = math.ceil(math.log10(len(self.logical_x_supports)))
         for logical_index, subset in self.logical_index_to_subset.items():
-            print(f'{logical_index:{digit_count}d}', subset, [str(pauli) for pauli in self.logical_operators[subset]])
+            print(
+                f'{logical_index:{digit_count}d}',
+                subset,
+                [str(pauli) for pauli in self.logical_operators[frozenset(subset)]],
+            )
 
     @cached_property
     def stabilizer_generators_rref(self):
@@ -352,7 +375,7 @@ class QuantumReedMuller:
         :param b_subset: Logical qubit label as a subset of ``[m]``.
         :returns: A ``stim.Circuit`` inducing the logical S on that qubit.
         """
-        pairs = list(zip(b_subset, self._complement(b_subset), strict=True))
+        pairs = list(zip(b_subset, complement(self.M, b_subset), strict=True))
         out = self.automorphism_product(pairs, type_='Q', gate_type='phase')
         if self.M//2 % 2:
             return out.inverse()
@@ -366,7 +389,7 @@ class QuantumReedMuller:
         """
         s_b = self._s(b_subset)
         transversal_h = stim.Circuit(f'H {' '.join(str(k) for k in range(s_b.num_qubits))}')
-        s_b_complement = self._s(self._complement(b_subset))
+        s_b_complement = self._s(complement(self.M, b_subset))
         return s_b + transversal_h + s_b_complement + transversal_h + s_b
     
     def _2_qubit_gate(self, target_0: int, target_1: int, name: Literal['SWAP', 'ZZCZ']):
@@ -405,7 +428,7 @@ class QuantumReedMuller:
         arguments_0 = b_subset.intersection(b_prime_subset)
         if len(arguments_0) != self.M//2 - 1:
             raise ValueError(f"Logical qubit indices {b_subset}, {b_prime_subset} must differ by exactly one basis vector.")
-        arguments_1 = self._complement(b_subset.union(b_prime_subset))
+        arguments_1 = complement(self.M, b_subset.union(b_prime_subset))
         pairs = list(zip(arguments_0, arguments_1, strict=True))
         return self.automorphism_product(pairs, type_='Q', gate_type='phase')
 
@@ -441,20 +464,12 @@ class QuantumReedMuller:
         encountered_qubits: set[int] = set()
         for logical_index, b_subset in self.logical_index_to_subset.items():
             if logical_index not in encountered_qubits and arguments_0.issubset(b_subset) and arguments_1.isdisjoint(b_subset):
-                b_complement = self._complement(b_subset)
+                b_complement = complement(self.M, b_subset)
                 b_prime_subset = b_complement.union(arguments_0).difference(arguments_1)
                 logical_index_prime = self.subset_to_logical_index[frozenset(b_prime_subset)]
                 for gate in gates:
                     circuit.append(gate, [logical_index, logical_index_prime], ())
                 encountered_qubits.add(logical_index_prime)
-
-    def _complement(self, subset: Collection[int]):
-        """Return the complement of a subset of ``[m]``.
-
-        :param subset: Subset of ``[m]``.
-        :returns: The complement of ``subset`` within ``{1, ..., m}``.
-        """
-        return set(range(1, self.M+1)).difference(subset)
 
     def _get_logical_tableau(self, physical_circuit: stim.Circuit):
         """Compute the logical tableau induced by a physical circuit.
@@ -467,13 +482,13 @@ class QuantumReedMuller:
         zs: list[stim.PauliString] = []
         for _, subset in sorted(self.logical_index_to_subset.items(), key=lambda item: item[0]):
             for logical_operator, conjugated_generator_list in zip(
-                self.logical_operators[subset],
+                self.logical_operators[frozenset(subset)],
                 (xs, zs),
                 strict=True,
             ):
                 transformed = logical_operator.after(physical_circuit)
                 transformed_logical_action = ''.join(_signature_to_pauli[tuple(
-                    not transformed.commutes(observable) for observable in self.logical_operators[_subset]
+                    not transformed.commutes(observable) for observable in self.logical_operators[frozenset(_subset)]
                 )] for _, _subset in sorted(self.logical_index_to_subset.items(), key=lambda item: item[0])) # type: ignore
 
                 # construct logical representative
@@ -483,7 +498,7 @@ class QuantumReedMuller:
                     transformed_logical_action,
                     strict=True,
                 ):
-                    _x, _z = self.logical_operators[_subset]
+                    _x, _z = self.logical_operators[frozenset(_subset)]
                     if pauli == 'X':
                         logical_representative *= _x
                     elif pauli == 'Y':

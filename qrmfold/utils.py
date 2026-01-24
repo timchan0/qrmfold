@@ -6,6 +6,16 @@ import numpy as np
 from numpy import typing as npt
 
 
+def complement(m: int, subset: Collection[int], start: int = 1):
+    """Return the complement of a subset.
+
+    :param m: The size of the universal set.
+    :param subset: Subset of the universe.
+    :param start: The starting index of the universal set (default is 1).
+    :returns: The complement of ``subset`` within ``{start, ..., start + m - 1}``.
+    """
+    return set(range(start, start + m)).difference(subset)
+
 # adapted from itertools recipes
 def powerset(pairs: Collection[tuple[int, int]], max_cardinality: None | int = None):
     """Iterate subsequences of ``pairs`` from shortest to longest.
