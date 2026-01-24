@@ -45,7 +45,7 @@ class Automorphism:
         :returns out: An n x n numpy array ``out`` such that applying the automorphism
             corresponds to multiplying by ``out``.
         """
-        out = np.zeros((self.M**2, self.M**2), dtype=int)
+        out = np.zeros((2**self.M, 2**self.M), dtype=int)
         for p, q in enumerate(self.positions):
             out[q, p] = 1
         return out
