@@ -236,7 +236,7 @@ class QuantumReedMuller:
                 stabilizers_bsf.append(np.append(xs, zs))
         return rref_gf2(stabilizers_bsf)
 
-    def automorphism(
+    def _automorphism(
             self,
             type_: Literal['trivial', 'P', 'Q'] = 'trivial',
             pairs: None | Iterable[tuple[int, int]] = None,
@@ -273,6 +273,26 @@ class QuantumReedMuller:
                     raise ValueError("type_ must be 'P' or 'Q'")
         return automorphism
 
+    def automorphism(
+            self,
+            pairs: None | Collection[tuple[int, int]] = None,
+            type_: Literal['trivial', 'P', 'Q'] = 'Q',
+            gate_type: Literal['swap', 'phase'] = 'phase',
+    ):
+        """Return the physical circuit of ``U_t(a(K))``.
+
+        :param pairs: Set ``K`` of integer pairs ``(i, j)`` with
+            ``1 <= i, j <= M``. Each integer in ``pairs`` must be distinct.
+            If ``None``, treated as empty.
+        :param type_: Automorphism ``a`` ('trivial', 'P', or 'Q').
+            The trivial automorphism maps every element to itself.
+            P(i, j) swaps basis vectors i and j (1-indexed).
+            Q(i, j) adds basis vector j onto basis vector i (1-indexed).
+        :param gate_type: Gate type ``t`` ('swap' or 'phase').
+        :returns: A ``stim.Circuit`` of the product.
+        """
+        return self._automorphism(type_=type_, pairs=pairs).gate(gate_type)
+    
     def automorphism_product(
             self,
             pairs: None | Collection[tuple[int, int]] = None,
@@ -281,16 +301,23 @@ class QuantumReedMuller:
     ):
         """Return the physical circuit of ``\\prod_{L \\subseteq K} U_t(a(L))``.
 
-        :param pairs: Set ``K`` of pairs. If ``None``, treated as empty.
-        :param type_: Automorphism ``a`` (``'trivial'``, ``'P'``, or ``'Q'``).
-        :param gate_type: Gate type ``t`` (``'swap'`` or ``'phase'``).
+        :param pairs: Set ``K`` of integer pairs ``(i, j)`` with
+            ``1 <= i, j <= M``. Each integer in ``pairs`` must be distinct.
+            If ``None``, treated as empty.
+        :param type_: Automorphism ``a`` ('trivial', 'P', or 'Q').
+            The trivial automorphism maps every element to itself.
+            P(i, j) swaps basis vectors i and j (1-indexed).
+            Q(i, j) adds basis vector j onto basis vector i (1-indexed).
+        :param gate_type: Gate type ``t`` ('swap' or 'phase').
         :returns: A ``stim.Circuit`` of the product.
         """
         if pairs is None:
             pairs = []
-        return sum((
-            self.automorphism(type_, l_subset).gate(gate_type) for l_subset in powerset(pairs)
-        ), start=stim.Circuit())
+        return sum((self.automorphism(
+            pairs=l_subset,
+            type_=type_,
+            gate_type=gate_type,
+        ) for l_subset in powerset(pairs)), start=stim.Circuit())
 
     def q_phase_logical_action(self, pairs: Collection[tuple[int, int]]):
         """Compute the logical action of ``U_P(Q(K))``.

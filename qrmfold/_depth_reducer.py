@@ -20,8 +20,10 @@ class DepthReducer:
     def reduce(cls, circuit: stim.Circuit) -> stim.Circuit:
         """Reduce circuit depth by accumulating commuting gates.
 
-        Currently supports 1-qubit phase gates (S/Z/S_DAG), CZ, H,
-        and repeat blocks.
+        Currently supports I, S, Z, S_DAG, CZ, H, CX,
+        TICK, and repeat blocks.
+        Accumulates the S, Z, S_DAG, and CZ gates
+        and removes the I gates.
 
         :param circuit: Input circuit.
         :returns: An equivalent circuit with reduced depth.
@@ -34,7 +36,7 @@ class DepthReducer:
                 out += reducer._to_circuit()
                 reducer = cls()
                 out += instruction.repeat_count * cls.reduce(instruction.body_copy())
-            elif instruction.name == 'H':
+            elif instruction.name in {'TICK', 'H', 'CX'}:
                 out += reducer._to_circuit()
                 reducer = cls()
                 out.append(instruction)
@@ -45,7 +47,7 @@ class DepthReducer:
                     name=instruction.name,
                     targets=instruction.targets_copy(),
                 )
-            else:
+            elif instruction.name != 'I':
                 raise ValueError(f"Unsupported instruction {instruction.name} in circuit.")
         return out + reducer._to_circuit()
 
