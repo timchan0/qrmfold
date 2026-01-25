@@ -325,8 +325,7 @@ class QuantumReedMuller:
         :param pairs: Set ``K`` of pairs.
         :returns: A ``stim.Circuit`` acting on logical qubits.
         """
-        circuit = stim.Circuit()
-        circuit.append('I', self.logical_index_to_subset.keys(), ())
+        circuit = self._logical_action_starter()
         for l_subset in powerset(pairs, self.M//2 - 2):
             self._logical_action_helper(circuit, l_subset, gates=['CZ'])
         if len(pairs) >= self.M//2 - 1:
@@ -346,8 +345,7 @@ class QuantumReedMuller:
         :returns: A ``stim.Circuit`` acting on logical qubits.
         :raises ValueError: If ``len(pairs)`` exceeds ``m/2``.
         """
-        circuit = stim.Circuit()
-        circuit.append('I', self.logical_index_to_subset.keys(), ())
+        circuit = self._logical_action_starter()
         if len(pairs) <= self.M//2 - 2:
             self._logical_action_helper(circuit, pairs, gates=['CZ'])
         elif len(pairs) == self.M//2 - 1:
@@ -360,6 +358,36 @@ class QuantumReedMuller:
         else:
             raise ValueError("pairs length cannot exceed m/2")
         return circuit
+
+    def _logical_action_starter(self):
+        circuit = stim.Circuit()
+        circuit.append('I', self.logical_index_to_subset.keys(), ())
+        return circuit
+
+    def _logical_action_helper(
+            self,
+            circuit: stim.Circuit,
+            pairs: Collection[tuple[int, int]],
+            gates: Sequence[str],
+    ):
+        """Helper for :meth:`q_phase_logical_action` and :meth:`q_phase_product_logical_action`.
+
+        :param circuit: Circuit to append to.
+        :param pairs: Pair set ``K`` (see caller) with ``len(pairs) < m/2``.
+        :param gates: Gate names to append for each affected logical qubit pair.
+        :returns: ``None``. Mutates ``circuit`` in-place.
+        """
+        arguments_0 = extract_arguments(0, pairs)
+        arguments_1 = extract_arguments(1, pairs)
+        encountered_qubits: set[int] = set()
+        for logical_index, b_subset in self.logical_index_to_subset.items():
+            if logical_index not in encountered_qubits and arguments_0.issubset(b_subset) and arguments_1.isdisjoint(b_subset):
+                b_complement = complement(self.M, b_subset)
+                b_prime_subset = b_complement.union(arguments_0).difference(arguments_1)
+                logical_index_prime = self.subset_to_logical_index[frozenset(b_prime_subset)]
+                for gate in gates:
+                    circuit.append(gate, [logical_index, logical_index_prime], ())
+                encountered_qubits.add(logical_index_prime)
 
     def gate(
             self,
@@ -472,31 +500,6 @@ class QuantumReedMuller:
         zzcz = self._zzcz_restricted(b_subset, b_prime_subset)
         hh = self._h(b_subset) + self._h(b_prime_subset)
         return 3 * (zzcz + hh)
-
-    def _logical_action_helper(
-            self,
-            circuit: stim.Circuit,
-            pairs: Collection[tuple[int, int]],
-            gates: Sequence[str],
-    ):
-        """Helper for :meth:`q_phase_logical_action` and :meth:`q_phase_product_logical_action`.
-
-        :param circuit: Circuit to append to.
-        :param pairs: Pair set ``K`` (see caller) with ``len(pairs) < m/2``.
-        :param gates: Gate names to append for each affected logical qubit pair.
-        :returns: ``None``. Mutates ``circuit`` in-place.
-        """
-        arguments_0 = extract_arguments(0, pairs)
-        arguments_1 = extract_arguments(1, pairs)
-        encountered_qubits: set[int] = set()
-        for logical_index, b_subset in self.logical_index_to_subset.items():
-            if logical_index not in encountered_qubits and arguments_0.issubset(b_subset) and arguments_1.isdisjoint(b_subset):
-                b_complement = complement(self.M, b_subset)
-                b_prime_subset = b_complement.union(arguments_0).difference(arguments_1)
-                logical_index_prime = self.subset_to_logical_index[frozenset(b_prime_subset)]
-                for gate in gates:
-                    circuit.append(gate, [logical_index, logical_index_prime], ())
-                encountered_qubits.add(logical_index_prime)
 
     def _get_logical_tableau(self, physical_circuit: stim.Circuit):
         """Compute the logical tableau induced by a physical circuit.
