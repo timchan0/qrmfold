@@ -9,7 +9,7 @@ from numpy import typing as npt
 from reedmuller.reedmuller import _vector_mult, _vector_neg
 import stim
 
-from qrmfold import logical_index_to_subset_maps
+from qrmfold import logical_qubit_orderings
 from qrmfold._automorphism import Automorphism
 from qrmfold._depth_reducer import DepthReducer
 from qrmfold.utils import all_bitstrings, complement, extract_arguments, powerset, sign_to_power, rref_gf2
@@ -156,20 +156,20 @@ class QuantumReedMuller:
             self,
             m: int,
             minimize_weight: bool = True,
-            logical_index_to_subset: None | dict[int, set[int]] = None,
+            logical_qubit_ordering: None | dict[int, set[int]] = None,
     ):
         """Create a quantum Reed--Muller code instance.
 
         :param m: Bit count of the binary vector labels. Must be even.
         :param minimize_weight: Whether to minimize the weight
             of each stabilizer generator to ``2**(m//2 + 1)``.
-        :param logical_index_to_subset: Optional 1-to-1 map from logical qubit
+        :param logical_qubit_ordering: Optional 1-to-1 map from logical qubit
             index to a subset of ``[m]`` of cardinality ``m/2``. If not
             specified, subsets are ordered lexicographically.
-        :raises ValueError: If ``m`` is odd, or if ``logical_index_to_subset``
+        :raises ValueError: If ``m`` is odd, or if ``logical_qubit_ordering``
             does not have the required codomain.
         """
-        self._validate_init_inputs(m, logical_index_to_subset)
+        self._validate_init_inputs(m, logical_qubit_ordering)
         self.M = m
         r = m//2 - 1
         self.classical = ReedMuller(r, m, minimize_weight=minimize_weight)
@@ -187,30 +187,30 @@ class QuantumReedMuller:
             _complement = frozenset(complement(m, subset))
             z = stim.PauliString('Z' if p else 'I' for p in self.logical_x_supports[_complement])
             self.logical_operators[subset] = (x, z)
-        self.logical_index_to_subset = logical_index_to_subset_maps.default(m) \
-            if logical_index_to_subset is None else logical_index_to_subset
+        self.logical_qubit_ordering = logical_qubit_orderings.lexicographic(m) \
+            if logical_qubit_ordering is None else logical_qubit_ordering
         self.subset_to_logical_index = {
-            frozenset(subset): index for index, subset in self.logical_index_to_subset.items()
+            frozenset(subset): index for index, subset in self.logical_qubit_ordering.items()
         }
 
     @staticmethod
-    def _validate_init_inputs(m: int, logical_index_to_subset: None | dict[int, set[int]]):
+    def _validate_init_inputs(m: int, logical_qubit_ordering: None | dict[int, set[int]]):
         """Validate constructor inputs.
 
         :param m: Bit count of the binary vector labels.
-        :param logical_index_to_subset: Candidate map from logical index to
+        :param logical_qubit_ordering: Candidate map from logical index to
             subset.
-        :raises ValueError: If ``m`` is odd or if ``logical_index_to_subset``
+        :raises ValueError: If ``m`` is odd or if ``logical_qubit_ordering``
             does not have the required codomain.
         """
         if m % 2:
             raise ValueError("m must be even")
-        if logical_index_to_subset is None:
+        if logical_qubit_ordering is None:
             return
         target: set[frozenset[int]] = {frozenset(subset) for subset in itertools.combinations(range(1, m+1), m//2)}
-        actual: set[frozenset[int]] = {frozenset(subset) for subset in logical_index_to_subset.values()}
+        actual: set[frozenset[int]] = {frozenset(subset) for subset in logical_qubit_ordering.values()}
         if target != actual:
-            raise ValueError("self.logical_index_to_subset must be a 1-to-1 map from logical qubit index to subset of [m] of cardinality m/2.")
+            raise ValueError("self.logical_qubit_ordering must be a 1-to-1 map from logical qubit index to subset of [m] of cardinality m/2.")
 
     def print(self):
         for basis in ('X', 'Z'):
@@ -219,7 +219,7 @@ class QuantumReedMuller:
                 print(g)
         print('logical operators:')
         digit_count = math.ceil(math.log10(len(self.logical_x_supports)))
-        for logical_index, subset in self.logical_index_to_subset.items():
+        for logical_index, subset in self.logical_qubit_ordering.items():
             print(
                 f'{logical_index:{digit_count}d}',
                 subset,
@@ -361,7 +361,7 @@ class QuantumReedMuller:
 
     def _logical_action_starter(self):
         circuit = stim.Circuit()
-        circuit.append('I', self.logical_index_to_subset.keys(), ())
+        circuit.append('I', self.logical_qubit_ordering.keys(), ())
         return circuit
 
     def _logical_action_helper(
@@ -380,7 +380,7 @@ class QuantumReedMuller:
         arguments_0 = extract_arguments(0, pairs)
         arguments_1 = extract_arguments(1, pairs)
         encountered_qubits: set[int] = set()
-        for logical_index, b_subset in self.logical_index_to_subset.items():
+        for logical_index, b_subset in self.logical_qubit_ordering.items():
             if logical_index not in encountered_qubits and arguments_0.issubset(b_subset) and arguments_1.isdisjoint(b_subset):
                 b_complement = complement(self.M, b_subset)
                 b_prime_subset = b_complement.union(arguments_0).difference(arguments_1)
@@ -411,7 +411,7 @@ class QuantumReedMuller:
         if name == 'S' or name == 'H':
             _gate = self._s if name == 'S' else self._h
             out = sum((_gate(
-                set(self.logical_index_to_subset[target])
+                set(self.logical_qubit_ordering[target])
             ) for target in targets), start=stim.Circuit())
         else:
             out = stim.Circuit()
@@ -456,8 +456,8 @@ class QuantumReedMuller:
         :returns: A ``stim.Circuit`` inducing the requested logical action.
         """
         _gate = self._swap_restricted if name == 'SWAP' else self._zzcz_restricted
-        b_subset = set(self.logical_index_to_subset[target_0])
-        b_prime_subset = set(self.logical_index_to_subset[target_1])
+        b_subset = set(self.logical_qubit_ordering[target_0])
+        b_prime_subset = set(self.logical_qubit_ordering[target_1])
         intermediate_subsets = _get_intermediate_subsets(b_subset, b_prime_subset)
         if not intermediate_subsets:
             return _gate(b_subset, b_prime_subset)
@@ -510,7 +510,7 @@ class QuantumReedMuller:
         """
         xs: list[stim.PauliString] = []
         zs: list[stim.PauliString] = []
-        for _, subset in sorted(self.logical_index_to_subset.items(), key=lambda item: item[0]):
+        for _, subset in sorted(self.logical_qubit_ordering.items(), key=lambda item: item[0]):
             for logical_operator, conjugated_generator_list in zip(
                 self.logical_operators[frozenset(subset)],
                 (xs, zs),
@@ -519,12 +519,12 @@ class QuantumReedMuller:
                 transformed = logical_operator.after(physical_circuit)
                 transformed_logical_action = ''.join(_signature_to_pauli[tuple(
                     not transformed.commutes(observable) for observable in self.logical_operators[frozenset(_subset)]
-                )] for _, _subset in sorted(self.logical_index_to_subset.items(), key=lambda item: item[0])) # type: ignore
+                )] for _, _subset in sorted(self.logical_qubit_ordering.items(), key=lambda item: item[0])) # type: ignore
 
                 # construct logical representative
                 logical_representative = stim.PauliString()
                 for (_, _subset), pauli in zip(
-                    sorted(self.logical_index_to_subset.items(), key=lambda item: item[0]),
+                    sorted(self.logical_qubit_ordering.items(), key=lambda item: item[0]),
                     transformed_logical_action,
                     strict=True,
                 ):

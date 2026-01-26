@@ -1,2 +1,2 @@
-from qrmfold import logical_index_to_subset_maps
+from qrmfold import logical_qubit_orderings
 from qrmfold.quantum_reed_muller import QuantumReedMuller

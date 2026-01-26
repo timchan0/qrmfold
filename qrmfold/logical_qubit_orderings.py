@@ -4,10 +4,10 @@ import math
 from qrmfold.utils import complement
 
 
-def default(m: int, start_index: int = 0):
+def lexicographic(m: int, start_index: int = 0):
     """Return the lexicographic logical qubit ordering.
 
-    :param m: Universe size (must be even for use with the code).
+    :param m: Universe size (must be even).
     :param start_index: Starting logical index.
     :returns: A dict mapping each logical index to a subset of ``[m]`` of
         cardinality ``m/2``.
@@ -18,13 +18,13 @@ def default(m: int, start_index: int = 0):
     ), start=start_index))
 
 
-def alternative(m: int, start_index: int = 0):
-    """Return the alternative logical qubit ordering.
+def canonical(m: int, start_index: int = 0):
+    """Return the canonical logical qubit ordering.
 
     The first half of the logical qubits is lexicographically ordered.
     The second half is the complement of the first half.
 
-    :param m: Universe size.
+    :param m: Universe size (must be even).
     :param start_index: Starting logical index.
     :returns: A dict mapping each logical index to a subset of ``[m]`` of
         cardinality ``m/2``.

@@ -77,7 +77,7 @@ class TestCodespacePreservation:
         qrms: dict[int, QuantumReedMuller],
     ):
         qrm = qrms[m]
-        for j, k in itertools.combinations(qrm.logical_index_to_subset.keys(), 2):
+        for j, k in itertools.combinations(qrm.logical_qubit_ordering.keys(), 2):
             circuit = qrm.gate(name, [j, k], reduce_depth=reduce_depth)
             self._helper(qrm, circuit)
 
@@ -123,12 +123,12 @@ class TestAddressableLogicalAction:
         reduce_depth: bool,
     ):
         qrm = qrms[m]
-        for logical_index in qrm.logical_index_to_subset.keys():
+        for logical_index in qrm.logical_qubit_ordering.keys():
             physical_circuit = qrm.gate(name, [logical_index], reduce_depth=reduce_depth)
             realized_tableau = qrm._get_logical_tableau(physical_circuit)
             
             target_circuit = stim.Circuit()
-            target_circuit.append('I', qrm.logical_index_to_subset.keys(), ())
+            target_circuit.append('I', qrm.logical_qubit_ordering.keys(), ())
             target_circuit.append(name, [logical_index], ())
             target_tableau = target_circuit.to_tableau()
             
@@ -145,7 +145,7 @@ class TestAddressableLogicalAction:
         qrm = qrms[m]
         to_test = qrm._zzcz_restricted if name == 'ZZCZ' else qrm._swap_restricted
         gates = ['CZ', 'Z'] if name == 'ZZCZ' else ['SWAP']
-        for (i, i_tuple), (j, j_tuple) in itertools.combinations(qrm.logical_index_to_subset.items(), 2):
+        for (i, i_tuple), (j, j_tuple) in itertools.combinations(qrm.logical_qubit_ordering.items(), 2):
             i_subset = set(i_tuple)
             j_subset = set(j_tuple)
             if len(i_subset.intersection(j_subset)) == qrm.M//2 - 1:
@@ -154,7 +154,7 @@ class TestAddressableLogicalAction:
                 realized_tableau = qrm._get_logical_tableau(physical_circuit)
             
                 target_circuit = stim.Circuit()
-                target_circuit.append('I', qrm.logical_index_to_subset.keys(), ())
+                target_circuit.append('I', qrm.logical_qubit_ordering.keys(), ())
                 for stim_gate in gates:
                     target_circuit.append(stim_gate, [i, j], ())
                 target_tableau = target_circuit.to_tableau()
@@ -173,12 +173,12 @@ class TestAddressableLogicalAction:
     ):
         qrm = qrms[m]
         gates = ['SWAP'] if name == 'SWAP' else ['CZ', 'Z']
-        for i, j in itertools.combinations(qrm.logical_index_to_subset.keys(), 2):
+        for i, j in itertools.combinations(qrm.logical_qubit_ordering.keys(), 2):
             physical_circuit = qrm.gate(name, [i, j], reduce_depth=reduce_depth)
             realized_tableau = qrm._get_logical_tableau(physical_circuit)
         
             target_circuit = stim.Circuit()
-            target_circuit.append('I', qrm.logical_index_to_subset.keys(), ())
+            target_circuit.append('I', qrm.logical_qubit_ordering.keys(), ())
             for stim_gate in gates:
                 target_circuit.append(stim_gate, [i, j], ())
             target_tableau = target_circuit.to_tableau()
