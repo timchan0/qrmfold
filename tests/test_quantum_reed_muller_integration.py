@@ -30,34 +30,34 @@ class TestCodespacePreservation:
         assert np.array_equal(new_stabilizer_generators_rref, qrm.stabilizer_generators_rref)
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
-    @pytest.mark.parametrize("type_", ['P', 'Q'])
+    @pytest.mark.parametrize("automorphism_type", ['P', 'Q'])
     @pytest.mark.parametrize("m", range(2, 10, 2))
     def test_1_pair(
         self,
         m: int,
-        type_: Literal['P', 'Q'],
+        automorphism_type: Literal['P', 'Q'],
         gate_type: Literal['swap', 'phase'],
         qrms: dict[int, QuantumReedMuller],
     ):
         qrm = qrms[m]
         for k in range(0, m, 2):
-            circuit = qrm.automorphism([(k+1, k+2)], type_, gate_type)
+            circuit = qrm.automorphism([(k+1, k+2)], automorphism_type, gate_type)
             self._helper(qrm, circuit)
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
-    @pytest.mark.parametrize("type_", ['P', 'Q'])
+    @pytest.mark.parametrize("automorphism_type", ['P', 'Q'])
     @pytest.mark.parametrize("m", range(2, 12, 2))
     def test_1_to_maximal_pair_count(
         self,
         m: int,
-        type_: Literal['P', 'Q'],
+        automorphism_type: Literal['P', 'Q'],
         gate_type: Literal['swap', 'phase'],
         qrms: dict[int, QuantumReedMuller],
     ):
         qrm = qrms[m]
         for pair_count in range(1, m//2 + 1):
             pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
-            circuit = qrm.automorphism(pairs, type_, gate_type)
+            circuit = qrm.automorphism(pairs, automorphism_type, gate_type)
             self._helper(qrm, circuit)
 
     @pytest.mark.parametrize("m", range(2, 10, 2))
@@ -104,7 +104,7 @@ class TestLogicalAction:
     def test_product_of_unitaries(self, m: int, pair_count: int, qrms: dict[int, QuantumReedMuller]):
         qrm = qrms[m]
         pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
-        physical_circuit = qrm.automorphism_product(pairs, type_='Q', gate_type='phase')
+        physical_circuit = qrm.automorphism_product(pairs, automorphism_type='Q', gate_type='phase')
         realized_tableau = qrm._get_logical_tableau(physical_circuit)
         target_tableau = qrm.q_phase_product_logical_action(pairs).to_tableau()
         assert target_tableau == realized_tableau
@@ -148,7 +148,7 @@ class TestAddressableLogicalAction:
         for (i, i_tuple), (j, j_tuple) in itertools.combinations(qrm.logical_qubit_ordering.items(), 2):
             i_subset = set(i_tuple)
             j_subset = set(j_tuple)
-            if len(i_subset.intersection(j_subset)) == qrm.M//2 - 1:
+            if len(i_subset.intersection(j_subset)) == qrm.BIT_COUNT//2 - 1:
                 
                 physical_circuit = to_test(i_subset, j_subset)
                 realized_tableau = qrm._get_logical_tableau(physical_circuit)

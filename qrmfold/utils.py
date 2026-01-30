@@ -6,45 +6,48 @@ import numpy as np
 from numpy import typing as npt
 
 
-def complement(m: int, subset: Collection[int], start: int = 1):
-    """Return the complement of a subset.
+def complement(universe_size: int, subset: Collection[int], start: int = 1):
+    """Return the complement of a subset of m elements.
 
-    :param m: The size of the universal set.
+    :param universe_size: The size m of the universal set.
     :param subset: Subset of the universe.
-    :param start: The starting index of the universal set (default is 1).
-    :returns: The complement of ``subset`` within ``{start, ..., start + m - 1}``.
+    :param start: The starting index s of the universal set (default is 1).
+    :returns complement_set: The complement within {s, ..., s + m - 1}.
     """
-    return set(range(start, start + m)).difference(subset)
+    return set(range(start, start + universe_size)).difference(subset)
 
 # adapted from itertools recipes
 def powerset(pairs: Collection[tuple[int, int]], max_cardinality: None | int = None):
-    """Iterate subsequences of ``pairs`` from shortest to longest.
+    """Iterate subsequences of a set up to an optional maximum cardinality.
+    
+    Example:
+    ``powerset([1,2,3]) → () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)``
 
-    :param pairs: Collection of pairs to take subsets from.
+    :param pairs: The set (of pairs) to take subsets from.
     :param max_cardinality: Optional cap on subset size.
-    :returns: An iterator over tuples representing subsets.
+    :returns chain: An iterator over tuples representing subsets,
+        from shortest to longest.
     """
-    # powerset([1,2,3]) → () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
     if max_cardinality is None:
         max_cardinality = len(pairs)
     return chain.from_iterable(combinations(pairs, r) for r in range(max_cardinality+1))
 
 
-def extract_arguments(index: Literal[0, 1], l_subset: Iterable[tuple[int, int]]):
+def extract_arguments(index: Literal[0, 1], pairs: Iterable[tuple[int, int]]):
     """Extract the set of arguments at a given position from a pair iterable.
 
     :param index: Which element of each pair to extract (0 or 1).
-    :param l_subset: Iterable of integer pairs.
+    :param pairs: Iterable of integer pairs.
     :returns: A set of extracted integers.
     """
-    return {pair[index] for pair in l_subset}
+    return {pair[index] for pair in pairs}
 
 
 def all_bitstrings(length: int) -> tuple[str, ...]:
     """Generate all bitstrings of a given length.
 
-    :param length: Bitstring length.
-    :returns: A tuple of all bitstrings of the given length.
+    :param length: Desired bitstring length.
+    :returns bitstrings: A tuple of all bitstrings of the given length.
     """
     if length == 0:
         return ('',)
@@ -55,10 +58,10 @@ def rref_gf2(matrix: list[npt.NDArray[np.bool_]]):
     """Compute the reduced row echelon form of a binary matrix over GF(2).
 
     :param matrix: List of row vectors.
-    :returns: The reduced row echelon form as a numpy array of integers.
+    :returns rref: The reduced row echelon form as a numpy array of integers.
     """
     # TODO: use galois package instead https://stackoverflow.com/questions/56856378/fast-computation-of-matrix-rank-over-gf2
-    array = np.array(matrix, dtype=np.int_)
+    array = np.array(matrix, dtype=np.uint8)
     rows, cols = array.shape
     pivot_row = 0
 
@@ -87,4 +90,4 @@ def rref_gf2(matrix: list[npt.NDArray[np.bool_]]):
 
 
 sign_to_power: dict[complex, int] = {1: 0, 1j: 1, -1: 2, -1j: 3}
-"""Map from a Pauli string sign to the exponent of ``i``."""
+"""Map from {±1, ±i} to the exponent of i."""

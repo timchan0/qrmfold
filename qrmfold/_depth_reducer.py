@@ -10,11 +10,11 @@ class DepthReducer:
 
     def __init__(self) -> None:
         self.s_gates: Counter[int] = Counter()
-        """Map from qubit index to the exponent of the S gate applied."""
+        """Map from qubit index to the integer exponent of the S gate applied."""
         self.cz_to_moment: dict[frozenset[int], int] = {}
         """Map from an unordered pair of qubit indices to the timeslice of its CZ gate."""
         self.moment_to_cz: defaultdict[int, dict[int, int]] = defaultdict(dict)
-        """Map from timeslice to a bidirectional map from qubit index to qubit index."""
+        """Map from timeslice to a bidirectional map between qubit indices."""
     
     @classmethod
     def reduce(cls, circuit: stim.Circuit) -> stim.Circuit:
@@ -26,7 +26,7 @@ class DepthReducer:
         and removes the I gates.
 
         :param circuit: Input circuit.
-        :returns: An equivalent circuit with reduced depth.
+        :returns reduced_circuit: An equivalent circuit of reduced depth.
         :raises ValueError: If an unsupported instruction is encountered.
         """
         out = stim.Circuit()
@@ -54,7 +54,7 @@ class DepthReducer:
     def _to_circuit(self):
         """Materialize the currently accumulated gates as a circuit.
 
-        :returns: A ``stim.Circuit`` containing the scheduled gates.
+        :returns circuit: A ``stim.Circuit`` containing the gates accumulated in ``self``.
         """
         out = stim.Circuit()
         
@@ -97,10 +97,11 @@ class DepthReducer:
                 self.moment_to_cz[t][index_1] = index_0
 
     def _get_earliest_moment(self, pair: frozenset[int]):
-        """Get the earliest timeslice when a CZ on ``pair`` can be scheduled.
+        """Get the earliest timeslice when a specified CZ can be scheduled.
 
-        :param pair: Unordered pair of physical qubit indices.
-        :returns: The earliest moment index that does not conflict.
+        :param pair: The unordered pair of physical qubit indices
+            that the CZ gate should act upon.
+        :returns moment: The earliest moment index that does not conflict.
         """
         t = 0
         while any(index in self.moment_to_cz[t] for index in pair):

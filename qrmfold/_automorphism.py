@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from typing import Literal
 import itertools
 
@@ -6,32 +7,29 @@ import stim
 
 
 class Automorphism:
-    """An automorphism of ``2**m`` elements represented as a permutation.
+    """An automorphism of the classical Reed-Muller code RM(m/2-1, m)."""
 
-    :ivar M: Bit count of the binary vector labels.
-    :ivar positions: A list such that ``positions[k]`` is the position of binary
-        vector ``k`` after applying the automorphism.
-    """
-
-    def __init__(self, m: int, pairs: list[tuple[str, str]]):
-        """Create an automorphism from a list of swaps.
-
-        :param m: Bit count of the binary vector labels.
-        :param pairs: List of label pairs ``(label_1, label_2)`` (binary strings)
-            specifying swaps.
+    def __init__(self, bit_count: int, pairs: Iterable[tuple[str, str]]):
         """
-        self.M = m
-        list_ = list(range(2**m))
+        :param bit_count: The number m of bits of the Reed-Muller code.
+        :param pairs: Iterable of distinct bit index pairs specifying swaps.
+        """
+        self.BIT_COUNT = bit_count
+        """The number m of bits of the Reed-Muller code."""
+        list_ = list(range(2**bit_count))
         for label_1, label_2 in pairs:
             p1 = int(label_1, 2)
             p2 = int(label_2, 2)
             list_[p1], list_[p2] = list_[p2], list_[p1]
         self.positions = list_
+        """The permutation of the automorphism, represented as a length-2^m list
+        such that ``positions[k]`` is the position of bit k after permutation.
+        """
 
     def __str__(self):
-        return f"{list(range(2**self.M))} ->\n{self.positions}"
+        return f"{list(range(2**self.BIT_COUNT))} ->\n{self.positions}"
 
-    def update(self, pairs: list[tuple[str, str]]):
+    def update(self, pairs: Iterable[tuple[str, str]]):
         list_ = self.positions
         for label_1, label_2 in pairs:
             p1 = int(label_1, 2)
@@ -40,40 +38,37 @@ class Automorphism:
 
     @property
     def matrix(self):
-        """Represent the automorphism as a permutation matrix.
-
-        :returns out: An n x n numpy array ``out`` such that applying the automorphism
-            corresponds to multiplying by ``out``.
-        """
-        out = np.zeros((2**self.M, 2**self.M), dtype=int)
+        """The 2^m x 2^m permutation matrix of the automorphism."""
+        n = 2**self.BIT_COUNT
+        out = np.zeros((n, n), dtype=np.uint8)
         for p, q in enumerate(self.positions):
             out[q, p] = 1
         return out
 
-    def gate(self, type_: Literal['swap', 'phase']):
-        """Return the physical circuit for this automorphism.
+    def gate(self, gate_type: Literal['swap', 'phase']):
+        """Return the physical circuit of this automorphism.
 
-        :param type_: Gate type (``'swap'`` or ``'phase'``).
-        :returns: A ``stim.Circuit`` for this automorphism.
-        :raises ValueError: If ``type_`` is not recognized.
+        :param gate_type: Gate type i.e. swap or phase.
+        :returns circuit: A ``stim.Circuit`` of this automorphism.
+        :raises ValueError: If ``gate_type`` is not recognized.
         """
         out = stim.Circuit()
-        if type_ == 'swap':
+        if gate_type == 'swap':
             swap_gates = self._swap_type()
             out.append("SWAP", itertools.chain.from_iterable(swap_gates), ())
-        elif type_ == 'phase':
+        elif gate_type == 'phase':
             cz_gates, s_gates = self._phase_type()
             out.append("CZ", itertools.chain.from_iterable(cz_gates), ())
             out.append("S", s_gates, ())
         else:
-            raise ValueError(f"Unknown gate type: {type_}")
+            raise ValueError(f"Unknown gate type: {gate_type}")
         return out
 
     def _swap_type(self):
-        """Compute the SWAP-type gate for this automorphism.
+        """Return the SWAP-type gate of this automorphism.
 
-        :returns: A set of unordered pairs, each representing a SWAP gate between
-            two qubits.
+        :returns swap_gates: A set of unordered pairs,
+        each representing a SWAP gate between physical two qubits.
         """
         swap_gates: set[frozenset[int]] = set()
         for row_index, position in enumerate(self.positions):
@@ -82,11 +77,10 @@ class Automorphism:
         return swap_gates
 
     def _phase_type(self):
-        """Compute the phase-type gate for this automorphism.
+        """Return the phase-type gate of this automorphism.
 
-        :returns: A pair ``(cz_gates, s_gates)`` where ``cz_gates`` is a set of
-            unordered pairs representing CZ gates, and ``s_gates`` is a set of
-            qubit indices where an S gate is applied.
+        :returns cz_gates: A set of unordered pairs representing physical CZ gates.
+        :returns s_gates: A set of physical qubit indices where an S gate is applied.
         """
         cz_gates: set[frozenset[int]] = set()
         s_gates: set[int] = set()
