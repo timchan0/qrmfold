@@ -41,7 +41,7 @@ class TestCodespacePreservation:
     ):
         qrm = qrms[m]
         for k in range(0, m, 2):
-            circuit = qrm.automorphism(type_, [(k+1, k+2)]).gate(gate_type)
+            circuit = qrm.automorphism([(k+1, k+2)], type_, gate_type)
             self._helper(qrm, circuit)
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
@@ -57,13 +57,13 @@ class TestCodespacePreservation:
         qrm = qrms[m]
         for pair_count in range(1, m//2 + 1):
             pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
-            circuit = qrm.automorphism(type_, pairs).gate(gate_type)
+            circuit = qrm.automorphism(pairs, type_, gate_type)
             self._helper(qrm, circuit)
 
     @pytest.mark.parametrize("m", range(2, 10, 2))
     def test_trivial_automorphism_phase_type(self, m: int, qrms: dict[int, QuantumReedMuller]):
         qrm = qrms[m]
-        circuit = qrm.automorphism().gate('phase')
+        circuit = qrm.automorphism(gate_type='phase')
         self._helper(qrm, circuit)
 
     @pytest.mark.parametrize("reduce_depth", (False, True))
@@ -92,7 +92,7 @@ class TestLogicalAction:
     def test_single_unitary(self, m: int, pair_count: int, qrms: dict[int, QuantumReedMuller]):
         qrm = qrms[m]
         pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
-        physical_circuit = qrm.automorphism('Q', pairs).gate('phase')
+        physical_circuit = qrm.automorphism(pairs, 'Q', 'phase')
         realized_tableau = qrm._get_logical_tableau(physical_circuit)
         target_tableau = qrm.q_phase_logical_action(pairs).to_tableau()
         assert realized_tableau == target_tableau

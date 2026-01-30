@@ -1,6 +1,6 @@
 [project]
 name = "qrmfold"
-version = "0.5.0"
+version = "0.5.1"
 description = "A Python package to generate fold-transversal gates in the quantum Reed-Muller code."
 authors = [{name="Tim Chan", email="timwlc@icloud.com"}]
 dependencies = [
