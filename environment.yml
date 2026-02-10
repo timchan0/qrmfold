@@ -2,11 +2,11 @@ name: qrmfold
 channels:
   - conda-forge
 dependencies:
-  - python>=3.13
+  - python>=3.10
   - ipykernel
   - ipywidgets
   - pytest
   - hatch
   - pip
   - pip:
-      - stim
+      - qrmfold

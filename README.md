@@ -7,6 +7,6 @@ from transversal and fold-transversal gates in the quantum Reed-Muller code.
 Run `pip install qrmfold`.
 
 ## Tutorial
-See [`getting_started.ipynb`](getting_started.ipynb).
+See [`getting_started.ipynb`](https://github.com/timchan0/qrmfold/blob/main/getting_started.ipynb).
 For more detail on individual functions/methods,
 inspect their docstrings.

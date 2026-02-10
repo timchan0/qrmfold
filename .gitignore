@@ -3,3 +3,15 @@
 /*.egg-info
 __pycache__/
 .vscode/
+
+# Python build artifacts
+/dist/
+/build/
+*.egg-info/
+
+# Python bytecode
+*.py[cod]
+*$py.class
+
+# Test/cache
+.pytest_cache/
