@@ -3,7 +3,6 @@ from typing import Literal
 
 import pytest
 import numpy as np
-from numpy import typing as npt
 import stim
 
 from qrmfold.utils import sign_to_power
@@ -19,7 +18,7 @@ class TestCodespacePreservation:
             qrm: QuantumReedMuller,
             circuit: stim.Circuit,
     ):
-        new_stabilizers_bsf: list[npt.NDArray[np.bool_]] = []
+        new_stabilizers_bsf: list[np.ndarray[tuple[int], np.dtype[np.bool_]]] = []
         for basis_generators in qrm.stabilizer_generators.values():
             for generator in basis_generators:
                 morphed = generator.after(circuit)

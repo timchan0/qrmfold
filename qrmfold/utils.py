@@ -3,7 +3,6 @@ from itertools import chain, combinations
 from typing import Literal
 
 import numpy as np
-from numpy import typing as npt
 
 
 def complement(universe_size: int, subset: Collection[int], start: int = 1):
@@ -54,7 +53,7 @@ def all_bitstrings(length: int) -> tuple[str, ...]:
     return tuple(np.binary_repr(k, width=length) for k in range(2**length))
 
 
-def rref_gf2(matrix: list[npt.NDArray[np.bool_]]):
+def rref_gf2(matrix: list[np.ndarray[tuple[int], np.dtype[np.bool_]]]):
     """Compute the reduced row echelon form of a binary matrix over GF(2).
 
     :param matrix: List of row vectors.

@@ -5,7 +5,6 @@ import math
 from typing import Literal
 
 import numpy as np
-from numpy import typing as npt
 from reedmuller.reedmuller import _vector_mult, _vector_neg
 import stim
 
@@ -242,7 +241,7 @@ class QuantumReedMuller:
     @cached_property
     def stabilizer_generators_rref(self):
         """The stabilizer generators as a binary symplectic matrix in reduced row echelon form."""
-        stabilizers_bsf: list[npt.NDArray[np.bool_]] = []
+        stabilizers_bsf: list[np.ndarray[tuple[int], np.dtype[np.bool_]]] = []
         for basis_generators in self.stabilizer_generators.values():
             for generator in basis_generators:
                 xs, zs = generator.to_numpy()
