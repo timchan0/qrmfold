@@ -59,7 +59,7 @@ def rref_gf2(matrix: list[np.ndarray[tuple[int], np.dtype[np.bool_]]]):
     :param matrix: List of row vectors.
     :returns rref: The reduced row echelon form as a numpy array of integers.
     """
-    # TODO: use galois package instead https://stackoverflow.com/questions/56856378/fast-computation-of-matrix-rank-over-gf2
+    # Note: This pure Python implementation seems to be faster than using the galois package.
     array = np.array(matrix, dtype=np.uint8)
     rows, cols = array.shape
     pivot_row = 0
