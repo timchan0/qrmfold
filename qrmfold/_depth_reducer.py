@@ -3,7 +3,22 @@ from collections import Counter, defaultdict
 import stim
 
 
-class DepthReducer:
+def reduce_circuit_depth(circuit: stim.Circuit):
+    """Apply basic circuit depth reduction by accumulating commuting gates.
+
+    Currently supports I, S, Z, S_DAG, CZ, H, CX,
+    TICK, and repeat blocks.
+    Accumulates the S, Z, S_DAG, and CZ gates
+    and removes the I gates.
+
+    :param circuit: Input circuit.
+    :returns reduced_circuit: An equivalent circuit of reduced depth.
+    :raises ValueError: If an unsupported instruction is encountered.
+    """
+    return _DepthReducer.reduce(circuit)
+
+
+class _DepthReducer:
 
     _GATE_TO_EXPONENT = {'S': 1, 'Z': 2, 'S_DAG': 3}
     _PERIOD = 4
@@ -18,17 +33,7 @@ class DepthReducer:
     
     @classmethod
     def reduce(cls, circuit: stim.Circuit) -> stim.Circuit:
-        """Reduce circuit depth by accumulating commuting gates.
-
-        Currently supports I, S, Z, S_DAG, CZ, H, CX,
-        TICK, and repeat blocks.
-        Accumulates the S, Z, S_DAG, and CZ gates
-        and removes the I gates.
-
-        :param circuit: Input circuit.
-        :returns reduced_circuit: An equivalent circuit of reduced depth.
-        :raises ValueError: If an unsupported instruction is encountered.
-        """
+        """See `reduce_circuit_depth`."""
         out = stim.Circuit()
         reducer = cls()
         for instruction in circuit:

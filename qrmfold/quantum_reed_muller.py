@@ -9,7 +9,7 @@ import stim
 
 from qrmfold import logical_qubit_orderings
 from qrmfold._automorphism import Automorphism
-from qrmfold._depth_reducer import DepthReducer
+from qrmfold._depth_reducer import reduce_circuit_depth
 from qrmfold.utils import all_bitstrings, complement, extract_arguments, powerset, sign_to_power, rref_gf2
 
 
@@ -445,7 +445,7 @@ class QuantumReedMuller:
             except ValueError:
                 raise ValueError(f"2-qubit gate {name} requires an even target count but was given {targets}.")
         if reduce_depth:
-            return DepthReducer.reduce(out)
+            return reduce_circuit_depth(out)
         return out
 
     def _s(self, b_subset: set[int]):

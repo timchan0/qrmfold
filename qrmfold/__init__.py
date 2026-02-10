@@ -1,2 +1,3 @@
 from qrmfold import logical_qubit_orderings
 from qrmfold.quantum_reed_muller import QuantumReedMuller
+from qrmfold._depth_reducer import reduce_circuit_depth
