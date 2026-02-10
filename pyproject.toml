@@ -1,19 +1,33 @@
 [project]
 name = "qrmfold"
-version = "0.6.2"
+version = "0.6.3"
 description = "A Python package to generate fold-transversal gates in the quantum Reed-Muller code."
 authors = [{name="Tim Chan", email="timwlc@icloud.com"}]
+readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
 dependencies = [
+    "numpy",
+    "stim",
+]
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = [
+    "build",
     "ipykernel",
     "ipywidgets",
     "pytest",
-    "stim",
+    "twine",
 ]
-requires-python = ">=3.13"
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.hatch.version]
-source = "vcs"
+[tool.hatch.build.targets.wheel]
+packages = ["qrmfold"]
