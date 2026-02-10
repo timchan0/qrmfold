@@ -14,4 +14,3 @@ dependencies:
   - pip:
       - stim
       - sinter
-      - reedmuller

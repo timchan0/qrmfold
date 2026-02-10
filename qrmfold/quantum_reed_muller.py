@@ -5,13 +5,24 @@ import math
 from typing import Literal
 
 import numpy as np
-from reedmuller.reedmuller import _vector_mult, _vector_neg
 import stim
 
 from qrmfold import logical_qubit_orderings
 from qrmfold._automorphism import Automorphism
 from qrmfold._depth_reducer import DepthReducer
 from qrmfold.utils import all_bitstrings, complement, extract_arguments, powerset, sign_to_power, rref_gf2
+
+
+def _multiply(*vectors: Iterable[int]):
+    """Elementwise multiplication of vectors.
+    
+    Require at least one vector, and all vectors must have the same length.
+    """
+    return [math.prod(a) for a in zip(*vectors, strict=True)]
+
+def _flip(vector: Iterable[int]):
+    """Subtract a vector over GF(2) from 1."""
+    return [1 - a for a in vector]
 
 
 class ReedMuller:
@@ -33,17 +44,17 @@ class ReedMuller:
 
         _all_ones = [1] * 2**bit_count
         _generator_matrix: list[list[int]] = []
-        _basis_neg = tuple(_vector_neg(v) for v in self.BASIS)
+        _basis_neg = tuple(_flip(v) for v in self.BASIS)
         for cardinality in range(order + 1):
             for subset in itertools.combinations(range(bit_count), cardinality):
                 vector_subset = [self.BASIS[i] for i in subset]
-                generator: list[int] = _all_ones if not subset else _vector_mult(*vector_subset)
+                generator: list[int] = _all_ones if not subset else _multiply(*vector_subset)
                 
                 if minimize_weight:
                     c = bit_count//2 - 1 - cardinality
                     _complement = complement(bit_count, subset, start=0)
                     additional_vectors = [_basis_neg[i] for i in _complement][:c]
-                    generator = _vector_mult(generator, *additional_vectors)
+                    generator = _multiply(generator, *additional_vectors)
                 
                 _generator_matrix.append(generator)
         self.generator_matrix = _generator_matrix
@@ -187,7 +198,7 @@ class QuantumReedMuller:
         }
         """Map from Pauli (X or Z) to a list of stabilizer generators of that type."""
         self._logical_x_supports: dict[frozenset[int], list[int]] = {
-            frozenset(subset): _vector_mult(*(self.classical.BASIS[i-1] for i in subset))
+            frozenset(subset): _multiply(*(self.classical.BASIS[i-1] for i in subset))
             for subset in itertools.combinations(range(1, bit_count+1), bit_count//2)
         }
         self.logical_operators: dict[frozenset[int], tuple[stim.PauliString, stim.PauliString]] = {}
