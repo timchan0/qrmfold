@@ -225,17 +225,18 @@ class QuantumReedMuller:
             raise ValueError("logical_qubit_ordering must be a 1-to-1 map from logical qubit index to subset of [m] of cardinality m/2.")
 
     def print(self):
+        """Print the stabilizer generators and logical operators."""
         for pauli in ('X', 'Z'):
             print(f'{pauli} stabilizer generators:')
             for g in self.stabilizer_generators[pauli]:
                 print(g)
-        print('logical operators:')
+        print('logical qubits and their X and Z operators:')
         digit_count = math.ceil(math.log10(len(self._logical_x_supports)))
         for logical_index, subset in self.logical_qubit_ordering.items():
             print(
                 f'{logical_index:{digit_count}d}',
                 subset,
-                [str(pauli) for pauli in self.logical_operators[frozenset(subset)]],
+                *(str(pauli) for pauli in self.logical_operators[frozenset(subset)]),
             )
 
     @cached_property
