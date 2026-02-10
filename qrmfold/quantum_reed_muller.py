@@ -157,7 +157,7 @@ _signature_to_pauli = {
 
 
 class QuantumReedMuller:
-    """The quantum Reed-Muller code CSS(RM(m/2-1, m), RM(m/2-1, m))."""
+    """The quantum Reed-Muller code CSS(RM(m/2 - 1, m), RM(m/2 - 1, m))."""
 
     def __init__(
             self,
@@ -181,7 +181,7 @@ class QuantumReedMuller:
         """The number m of bits of the underlying classical Reed-Muller code."""
         order = bit_count//2 - 1
         self.classical = ReedMuller(order, bit_count, minimize_weight=minimize_weight)
-        """The underlying classical Reed-Muller code RM(r, m)."""
+        """The underlying classical Reed-Muller code RM(m/2 - 1, m)."""
         self.stabilizer_generators = {
             pauli: [stim.PauliString(pauli if p else 'I' for p in g) for g in self.classical.generator_matrix]
             for pauli in ('X', 'Z')
@@ -517,9 +517,9 @@ class QuantumReedMuller:
     def _get_logical_tableau(self, physical_circuit: stim.Circuit):
         """Compute the logical tableau induced by a physical circuit.
 
-        :param physical_circuit: Physical circuit assumed to preserve the
+        :param physical_circuit: A physical circuit that preserve the
             stabilizer group.
-        :returns: The induced logical tableau.
+        :returns tableau: The induced logical tableau.
         """
         xs: list[stim.PauliString] = []
         zs: list[stim.PauliString] = []

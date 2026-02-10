@@ -31,7 +31,7 @@ class TestCodespacePreservation:
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
     @pytest.mark.parametrize("automorphism_type", ['P', 'Q'])
-    @pytest.mark.parametrize("m", range(2, 10, 2))
+    @pytest.mark.parametrize("m", range(2, 12, 2))
     def test_1_pair(
         self,
         m: int,
@@ -39,6 +39,9 @@ class TestCodespacePreservation:
         gate_type: Literal['swap', 'phase'],
         qrms: dict[int, QuantumReedMuller],
     ):
+        """Test U_S(P(i, j)), U_P(P(i, j), U_S(Q(i, j)), U_P(Q(i, j))
+        preserve the codespace.
+        """
         qrm = qrms[m]
         for k in range(0, m, 2):
             circuit = qrm.automorphism([(k+1, k+2)], automorphism_type, gate_type)
@@ -54,14 +57,20 @@ class TestCodespacePreservation:
         gate_type: Literal['swap', 'phase'],
         qrms: dict[int, QuantumReedMuller],
     ):
+        """Test U_S(P(K)), U_P(P(K), U_S(Q(K)), U_P(Q(K))
+        preserve the codespace for |K| in 1..m/2.
+        """
         qrm = qrms[m]
         for pair_count in range(1, m//2 + 1):
             pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
             circuit = qrm.automorphism(pairs, automorphism_type, gate_type)
             self._helper(qrm, circuit)
 
-    @pytest.mark.parametrize("m", range(2, 10, 2))
+    @pytest.mark.parametrize("m", range(2, 12, 2))
     def test_trivial_automorphism_phase_type(self, m: int, qrms: dict[int, QuantumReedMuller]):
+        """Test U_P(e) preserves the codespace.
+        U_S(e) is identity so need not be tested.
+        """
         qrm = qrms[m]
         circuit = qrm.automorphism(gate_type='phase')
         self._helper(qrm, circuit)
@@ -162,7 +171,7 @@ class TestAddressableLogicalAction:
                 assert target_tableau == realized_tableau
 
     @pytest.mark.parametrize("reduce_depth", (False, True))
-    @pytest.mark.parametrize("m", range(2, 6, 2))
+    @pytest.mark.parametrize("m", range(2, 8, 2))
     @pytest.mark.parametrize("name", ['SWAP', 'ZZCZ'])
     def test_2_qubit_gate(
         self,
@@ -171,6 +180,11 @@ class TestAddressableLogicalAction:
         name: Literal['SWAP', 'ZZCZ'],
         reduce_depth: bool,
     ):
+        """Test the logical action of either a SWAP or ZZCZ gate
+        on any pair of logical qubits.
+        
+        Note: there are 4 tests for m = 6 which in total take about 300 s on a laptop.
+        """
         qrm = qrms[m]
         gates = ['SWAP'] if name == 'SWAP' else ['CZ', 'Z']
         for i, j in itertools.combinations(qrm.logical_qubit_ordering.keys(), 2):
