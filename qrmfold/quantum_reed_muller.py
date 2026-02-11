@@ -9,7 +9,7 @@ import stim
 
 from qrmfold import logical_qubit_orderings
 from qrmfold._automorphism import Automorphism
-from qrmfold._depth_reducer import reduce_circuit_depth
+from qrmfold.depth_reducer import reduce_circuit_depth
 from qrmfold._utils import all_bitstrings, complement, extract_arguments, powerset, sign_to_power, rref_gf2
 
 
@@ -267,7 +267,7 @@ class QuantumReedMuller:
     ):
         """Construct an automorphism of the underlying classical Reed-Muller code.
 
-        :param automorphism_type: The automorphism type: trivial, P, or Q.
+        :param automorphism_type: The automorphism type: 'trivial', 'P', or 'Q'.
             The trivial automorphism maps every element to itself.
             P(i, j) swaps basis vectors v_i and v_j.
             Q(i, j) adds basis vector v_j onto basis vector v_i.
@@ -309,7 +309,7 @@ class QuantumReedMuller:
             1 <= i, j <= m, where m is the number of variables of the underlying Reed-Muller code.
             Each integer in ``pairs`` must be distinct.
             If omitted, treated as empty.
-        :param automorphism_type: The automorphism type a: trivial, P, or Q.
+        :param automorphism_type: The automorphism type a: 'trivial', 'P', or 'Q'.
             The trivial automorphism maps every element to itself.
             P(i, j) swaps basis vectors v_i and v_j.
             Q(i, j) adds basis vector v_j onto basis vector v_i.
@@ -330,7 +330,7 @@ class QuantumReedMuller:
             1 <= i, j <= m, where m is the number of variables of the underlying Reed-Muller code.
             Each integer in ``pairs`` must be distinct.
             If omitted, treated as empty.
-        :param automorphism_type: The automorphism type a: trivial, P, or Q.
+        :param automorphism_type: The automorphism type a: 'trivial', 'P', or 'Q'.
             The trivial automorphism maps every element to itself.
             P(i, j) swaps basis vectors v_i and v_j.
             Q(i, j) adds basis vector v_j onto basis vector v_i.

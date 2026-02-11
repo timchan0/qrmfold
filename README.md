@@ -29,8 +29,7 @@ Optionally, you can build the HTML docs locally:
 - Build: `cd docs && make html`
 - Open: `docs/build/html/index.html`
 
-## How to Cite qrmfold
-
+## How to cite qrmfold
 Please cite the accompanying paper:
 ```latex
 @misc{tansuwannont2026constructionlogicalcliffordgroup,
@@ -45,5 +44,4 @@ Please cite the accompanying paper:
 ```
 
 ## Release (maintainers)
-
 This repo includes a GitHub Actions workflow that publishes to PyPI when a version tag like `v0.7.0` is pushed.
