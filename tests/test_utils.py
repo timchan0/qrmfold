@@ -1,6 +1,6 @@
 import pytest
 
-from qrmfold.utils import all_bitstrings
+from qrmfold._utils import all_bitstrings
 
 
 class TestAllBitstrings:

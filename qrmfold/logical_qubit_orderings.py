@@ -1,7 +1,7 @@
 import itertools
 import math
 
-from qrmfold.utils import complement
+from qrmfold._utils import complement
 
 
 def lexicographic(num_variables: int, start_index: int = 0):

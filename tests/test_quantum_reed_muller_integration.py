@@ -5,9 +5,9 @@ import pytest
 import numpy as np
 import stim
 
-from qrmfold.utils import sign_to_power
+from qrmfold._utils import sign_to_power
 from qrmfold.quantum_reed_muller import QuantumReedMuller
-from qrmfold.utils import rref_gf2
+from qrmfold._utils import rref_gf2
 
 
 class TestCodespacePreservation:

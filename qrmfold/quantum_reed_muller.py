@@ -10,7 +10,7 @@ import stim
 from qrmfold import logical_qubit_orderings
 from qrmfold._automorphism import Automorphism
 from qrmfold._depth_reducer import reduce_circuit_depth
-from qrmfold.utils import all_bitstrings, complement, extract_arguments, powerset, sign_to_power, rref_gf2
+from qrmfold._utils import all_bitstrings, complement, extract_arguments, powerset, sign_to_power, rref_gf2
 
 
 def _multiply(*vectors: Iterable[int]):
