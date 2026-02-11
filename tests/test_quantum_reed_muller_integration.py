@@ -156,7 +156,7 @@ class TestAddressableLogicalAction:
         for (i, i_tuple), (j, j_tuple) in itertools.combinations(qrm.logical_qubit_ordering.items(), 2):
             i_subset = set(i_tuple)
             j_subset = set(j_tuple)
-            if len(i_subset.intersection(j_subset)) == qrm.BIT_COUNT//2 - 1:
+            if len(i_subset.intersection(j_subset)) == qrm.NUM_VARIABLES//2 - 1:
                 
                 physical_circuit = to_test(i_subset, j_subset)
                 realized_tableau = qrm._get_logical_tableau(physical_circuit)

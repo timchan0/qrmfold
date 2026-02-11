@@ -9,14 +9,14 @@ import stim
 class Automorphism:
     """An automorphism of the classical Reed-Muller code RM(m/2-1, m)."""
 
-    def __init__(self, bit_count: int, pairs: Iterable[tuple[str, str]]):
+    def __init__(self, num_variables: int, pairs: Iterable[tuple[str, str]]):
         """
-        :param bit_count: The number m of bits of the Reed-Muller code.
+        :param num_variables: The number m of variables of the Reed-Muller code.
         :param pairs: Iterable of distinct bit index pairs specifying swaps.
         """
-        self.BIT_COUNT = bit_count
-        """The number m of bits of the Reed-Muller code."""
-        list_ = list(range(2**bit_count))
+        self.NUM_VARIABLES = num_variables
+        """The number m of variables of the Reed-Muller code."""
+        list_ = list(range(2**num_variables))
         for label_1, label_2 in pairs:
             p1 = int(label_1, 2)
             p2 = int(label_2, 2)
@@ -27,7 +27,7 @@ class Automorphism:
         """
 
     def __str__(self):
-        return f"{list(range(2**self.BIT_COUNT))} ->\n{self.positions}"
+        return f"{list(range(2**self.NUM_VARIABLES))} ->\n{self.positions}"
 
     def update(self, pairs: Iterable[tuple[str, str]]):
         list_ = self.positions
@@ -39,7 +39,7 @@ class Automorphism:
     @property
     def matrix(self):
         """The 2^m x 2^m permutation matrix of the automorphism."""
-        n = 2**self.BIT_COUNT
+        n = 2**self.NUM_VARIABLES
         out = np.zeros((n, n), dtype=np.uint8)
         for p, q in enumerate(self.positions):
             out[q, p] = 1

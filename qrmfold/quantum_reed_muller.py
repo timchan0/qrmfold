@@ -28,31 +28,31 @@ def _flip(vector: Iterable[int]):
 class ReedMuller:
     """The classical Reed-Muller code RM(r, m)."""
 
-    def __init__(self, order: int, bit_count: int, minimize_weight: bool = True):
+    def __init__(self, order: int, num_variables: int, minimize_weight: bool = True):
         """
-        :param order: The order r of the Reed-Muller code.
-        :param bit_count: The number m of bits of the Reed-Muller code.
+        :param order: The order r of the code.
+        :param num_variables: The number m of variables of the code.
         :param minimize_weight: Whether to minimize the weight
             of each generator to 2^{m/2 + 1}.
         """
         self.ORDER = order
-        """The order r of the Reed-Muller code."""
-        self.BIT_COUNT = bit_count
-        """The number m of bits of the Reed-Muller code."""
-        self.BASIS = tuple(self._construct_basis_vector(i) for i in range(bit_count))
-        """Basis vectors {v_i : 0 <= i < m} for the Reed-Muller code of m bits."""
+        """The order r of the code."""
+        self.NUM_VARIABLES = num_variables
+        """The number m of variables of the code."""
+        self.BASIS = tuple(self._construct_basis_vector(i) for i in range(num_variables))
+        """Basis vectors {v_i : 0 <= i < m} for the Reed-Muller code of m variables."""
 
-        _all_ones = [1] * 2**bit_count
+        _all_ones = [1] * 2**num_variables
         _generator_matrix: list[list[int]] = []
         _basis_neg = tuple(_flip(v) for v in self.BASIS)
         for cardinality in range(order + 1):
-            for subset in itertools.combinations(range(bit_count), cardinality):
+            for subset in itertools.combinations(range(num_variables), cardinality):
                 vector_subset = [self.BASIS[i] for i in subset]
                 generator: list[int] = _all_ones if not subset else _multiply(*vector_subset)
                 
                 if minimize_weight:
-                    c = bit_count//2 - 1 - cardinality
-                    _complement = complement(bit_count, subset, start=0)
+                    c = num_variables//2 - 1 - cardinality
+                    _complement = complement(num_variables, subset, start=0)
                     additional_vectors = [_basis_neg[i] for i in _complement][:c]
                     generator = _multiply(generator, *additional_vectors)
                 
@@ -68,32 +68,32 @@ class ReedMuller:
         The vector is a string of 2^i zeros followed by 2^i ones repeated 2^(m - i - 1) times.
 
         :param index: Basis index i satisfying 0 <= i < m,
-        where m is the bit count of the Reed-Muller code.
+        where m is the number of variables of the Reed-Muller code.
         :returns basis_vector: The ith basis vector of length 2^m.
         """
-        list_: list[int] = ([0] * 2**index + [1] * 2**index) * 2 ** (self.BIT_COUNT-index-1)
+        list_: list[int] = ([0] * 2**index + [1] * 2**index) * 2 ** (self.NUM_VARIABLES-index-1)
         return tuple(list_)
 
 
-def _get_residual_slices(bit_count: int, i: int, j: int):
+def _get_residual_slices(num_variables: int, i: int, j: int):
     """Generate residual bitstring slices used by the automorphisms.
 
-    :param bit_count: Bit count of the bit index.
+    :param num_variables: Bit count of the bit index.
     :param i: First basis vector index (1-indexed).
     :param j: Second basis vector index (1-indexed).
     :returns residual_slices: An iterator over triples of residual bitstrings.
     """
     smaller, larger = min(i, j), max(i, j)
-    residual_1 = all_bitstrings(bit_count-larger)
+    residual_1 = all_bitstrings(num_variables-larger)
     residual_2 = all_bitstrings(larger-1-smaller)
     residual_3 = all_bitstrings(smaller-1)
     return itertools.product(residual_1, residual_2, residual_3)
 
 
-def _p_automorphism(bit_count: int, i: int, j: int):
+def _p_automorphism(num_variables: int, i: int, j: int):
     """Swap basis vectors v_i and v_j (1-indexed).
 
-    :param bit_count: Bit count of the bit index.
+    :param num_variables: Bit count of the bit index.
     :param i: First basis vector index (1-indexed).
     :param j: Second basis vector index (1-indexed).
     :returns pairs: A list of swapped bit index pairs ``(s1, s2)``.
@@ -101,17 +101,17 @@ def _p_automorphism(bit_count: int, i: int, j: int):
         and ``s2`` has a 1 in position ``i`` and a 0 in position ``j``.
     """
     result: list[tuple[str, str]] = []
-    for a, b, c in _get_residual_slices(bit_count, i, j):
+    for a, b, c in _get_residual_slices(num_variables, i, j):
         s1 = a + '0' + b + '1' + c
         s2 = a + '1' + b + '0' + c
         result.append((s1, s2))
     return result
 
 
-def _q_automorphism(bit_count: int, i: int, j: int):
+def _q_automorphism(num_variables: int, i: int, j: int):
     """Add basis vector v_j onto basis vector v_i (1-indexed).
 
-    :param bit_count: Bit count of the bit index.
+    :param num_variables: Bit count of the bit index.
     :param i: Target basis vector index (1-indexed).
     :param j: Source basis vector index (1-indexed).
     :returns pairs: A list of swapped bit index pairs ``(s1, s2)``.
@@ -123,7 +123,7 @@ def _q_automorphism(bit_count: int, i: int, j: int):
     else:
         s1_larger, s1_smaller = '0', '1'
     result: list[tuple[str, str]] = []
-    for a, b, c in _get_residual_slices(bit_count, i, j):
+    for a, b, c in _get_residual_slices(num_variables, i, j):
         s1 = a + s1_larger + b + s1_smaller + c
         s2 = a + '1' + b + '1' + c
         result.append((s1, s2))
@@ -171,26 +171,26 @@ class QuantumReedMuller:
 
     def __init__(
             self,
-            bit_count: int,
+            num_variables: int,
             minimize_weight: bool = True,
             logical_qubit_ordering: None | dict[int, set[int]] = None,
     ):
         """
-        :param bit_count: The number m of bits of the
+        :param num_variables: The number m of variables of the
             underlying classical Reed-Muller code; must be even.
         :param minimize_weight: Whether to minimize the weight
             of each stabilizer generator to 2^{m/2 + 1}.
         :param logical_qubit_ordering: Optional 1-to-1 map from logical qubit
             index to a subset of [m] of cardinality m/2.
             If not specified, subsets are ordered lexicographically.
-        :raises ValueError: If ``bit_count`` is odd,
+        :raises ValueError: If ``num_variables`` is odd,
         or if ``logical_qubit_ordering`` does not have the required codomain.
         """
-        self._validate_init_inputs(bit_count, logical_qubit_ordering)
-        self.BIT_COUNT = bit_count
-        """The number m of bits of the underlying classical Reed-Muller code."""
-        order = bit_count//2 - 1
-        self.classical = ReedMuller(order, bit_count, minimize_weight=minimize_weight)
+        self._validate_init_inputs(num_variables, logical_qubit_ordering)
+        self.NUM_VARIABLES = num_variables
+        """The number m of variables of the underlying classical Reed-Muller code."""
+        order = num_variables//2 - 1
+        self.classical = ReedMuller(order, num_variables, minimize_weight=minimize_weight)
         """The underlying classical Reed-Muller code RM(m/2 - 1, m)."""
         self.stabilizer_generators = {
             pauli: [stim.PauliString(pauli if p else 'I' for p in g) for g in self.classical.generator_matrix]
@@ -199,16 +199,16 @@ class QuantumReedMuller:
         """Map from Pauli (X or Z) to a list of stabilizer generators of that type."""
         self._logical_x_supports: dict[frozenset[int], list[int]] = {
             frozenset(subset): _multiply(*(self.classical.BASIS[i-1] for i in subset))
-            for subset in itertools.combinations(range(1, bit_count+1), bit_count//2)
+            for subset in itertools.combinations(range(1, num_variables+1), num_variables//2)
         }
         self.logical_operators: dict[frozenset[int], tuple[stim.PauliString, stim.PauliString]] = {}
         """Map from logical qubit (labelled by a subset of [m]) to its X and Z logical operators."""
         for subset, support in self._logical_x_supports.items():
             x = stim.PauliString('X' if p else 'I' for p in support)
-            _complement = frozenset(complement(bit_count, subset))
+            _complement = frozenset(complement(num_variables, subset))
             z = stim.PauliString('Z' if p else 'I' for p in self._logical_x_supports[_complement])
             self.logical_operators[subset] = (x, z)
-        self.logical_qubit_ordering = logical_qubit_orderings.lexicographic(bit_count) \
+        self.logical_qubit_ordering = logical_qubit_orderings.lexicographic(num_variables) \
             if logical_qubit_ordering is None else logical_qubit_ordering
         """Map from logical qubit index to a unique subset of [m] of cardinality m/2."""
         self.subset_to_logical_index = {
@@ -217,20 +217,20 @@ class QuantumReedMuller:
         """Map from subset of [m] of cardinality m/2 to logical qubit index."""
 
     @staticmethod
-    def _validate_init_inputs(bit_count: int, logical_qubit_ordering: None | dict[int, set[int]]):
+    def _validate_init_inputs(num_variables: int, logical_qubit_ordering: None | dict[int, set[int]]):
         """Validate constructor inputs.
 
-        :param bit_count: The number m of bits of the
+        :param num_variables: The number m of variables of the
             underlying classical Reed-Muller code; must be even.
         :param logical_qubit_ordering: Candidate map from logical index to subset of [m] of cardinality m/2.
-        :raises ValueError: If ``bit_count`` is odd,
+        :raises ValueError: If ``num_variables`` is odd,
         or if ``logical_qubit_ordering`` does not have the required codomain.
         """
-        if bit_count % 2:
-            raise ValueError("bit_count must be even")
+        if num_variables % 2:
+            raise ValueError("num_variables must be even")
         if logical_qubit_ordering is None:
             return
-        target: set[frozenset[int]] = {frozenset(subset) for subset in itertools.combinations(range(1, bit_count+1), bit_count//2)}
+        target: set[frozenset[int]] = {frozenset(subset) for subset in itertools.combinations(range(1, num_variables+1), num_variables//2)}
         actual: set[frozenset[int]] = {frozenset(subset) for subset in logical_qubit_ordering.values()}
         if target != actual:
             raise ValueError("logical_qubit_ordering must be a 1-to-1 map from logical qubit index to subset of [m] of cardinality m/2.")
@@ -272,7 +272,7 @@ class QuantumReedMuller:
             P(i, j) swaps basis vectors v_i and v_j.
             Q(i, j) adds basis vector v_j onto basis vector v_i.
         :param pairs: Iterable of integer pairs (i, j) satisfying
-            1 <= i, j <= m, where m is the bit count of the quantum Reed-Muller code.
+            1 <= i, j <= m, where m is the number of variables of the underlying Reed-Muller code.
             Each integer in ``pairs`` must be distinct.
             If omitted (or if ``automorphism_type == 'trivial'``),
             the trivial automorphism is returned.
@@ -280,19 +280,19 @@ class QuantumReedMuller:
         :raises ValueError: If any index in ``pairs`` is out of range or is repeated,
             or if ``automorphism_type`` is not recognized.
         """
-        automorphism = Automorphism(self.BIT_COUNT, ())
+        automorphism = Automorphism(self.NUM_VARIABLES, ())
         if pairs is not None and automorphism_type != 'trivial':
             exhausted_indices: set[int] = set()
             for i, j in pairs:
-                if not ((1 <= i <= self.BIT_COUNT) and (1 <= j <= self.BIT_COUNT)):
-                    raise ValueError(f"i and j must be between 1 and {self.BIT_COUNT}, inclusive")
+                if not ((1 <= i <= self.NUM_VARIABLES) and (1 <= j <= self.NUM_VARIABLES)):
+                    raise ValueError(f"i and j must be between 1 and {self.NUM_VARIABLES}, inclusive")
                 if (pair:={i, j}) & exhausted_indices:
                     raise ValueError("Each integer in pairs must be distinct")
                 exhausted_indices.update(pair)
                 if automorphism_type == 'P':
-                    automorphism.update(_p_automorphism(self.BIT_COUNT, i, j))
+                    automorphism.update(_p_automorphism(self.NUM_VARIABLES, i, j))
                 elif automorphism_type == 'Q':
-                    automorphism.update(_q_automorphism(self.BIT_COUNT, i, j))
+                    automorphism.update(_q_automorphism(self.NUM_VARIABLES, i, j))
                 else:
                     raise ValueError("automorphism_type must be 'trivial', 'P', or 'Q'")
         return automorphism
@@ -306,7 +306,7 @@ class QuantumReedMuller:
         """Return the physical circuit of U_t(a(K)).
 
         :param pairs: Set K of integer pairs (i, j) satisfying
-            1 <= i, j <= m, where m is the bit count of the quantum Reed-Muller code.
+            1 <= i, j <= m, where m is the number of variables of the underlying Reed-Muller code.
             Each integer in ``pairs`` must be distinct.
             If omitted, treated as empty.
         :param automorphism_type: The automorphism type a: trivial, P, or Q.
@@ -327,7 +327,7 @@ class QuantumReedMuller:
         """Return the physical circuit of ``\\prod_{L \\subseteq K} U_t(a(L))``.
 
         :param pairs: Set K of integer pairs (i, j) satisfying
-            1 <= i, j <= m, where m is the bit count of the quantum Reed-Muller code.
+            1 <= i, j <= m, where m is the number of variables of the underlying Reed-Muller code.
             Each integer in ``pairs`` must be distinct.
             If omitted, treated as empty.
         :param automorphism_type: The automorphism type a: trivial, P, or Q.
@@ -352,15 +352,15 @@ class QuantumReedMuller:
         :returns circuit: A ``stim.Circuit`` acting on the logical qubits of the code.
         """
         circuit = self._logical_action_starter()
-        for l_subset in powerset(pairs, self.BIT_COUNT//2 - 2):
+        for l_subset in powerset(pairs, self.NUM_VARIABLES//2 - 2):
             self._logical_action_helper(circuit, l_subset, gates=['CZ'])
-        if len(pairs) >= self.BIT_COUNT//2 - 1:
-            for l_subset in itertools.combinations(pairs, self.BIT_COUNT//2 - 1):
+        if len(pairs) >= self.NUM_VARIABLES//2 - 1:
+            for l_subset in itertools.combinations(pairs, self.NUM_VARIABLES//2 - 1):
                 self._logical_action_helper(circuit, l_subset, gates=['CZ', 'Z'])
-        if len(pairs) == self.BIT_COUNT//2:
+        if len(pairs) == self.NUM_VARIABLES//2:
             arguments_0 = extract_arguments(0, pairs)
             logical_index = self.subset_to_logical_index[frozenset(arguments_0)]
-            gate = 'S_DAG' if self.BIT_COUNT//2 % 2 else 'S'
+            gate = 'S_DAG' if self.NUM_VARIABLES//2 % 2 else 'S'
             circuit.append(gate, logical_index, ())
         return circuit
 
@@ -369,20 +369,20 @@ class QuantumReedMuller:
 
         :param pairs: Set K of pairs.
         :returns circuit: A ``stim.Circuit`` acting on the logical qubits of the code.
-        :raises ValueError: If ``pairs`` longer than ``self.BIT_COUNT/2``.
+        :raises ValueError: If ``pairs`` longer than ``self.NUM_VARIABLES/2``.
         """
         circuit = self._logical_action_starter()
-        if len(pairs) <= self.BIT_COUNT//2 - 2:
+        if len(pairs) <= self.NUM_VARIABLES//2 - 2:
             self._logical_action_helper(circuit, pairs, gates=['CZ'])
-        elif len(pairs) == self.BIT_COUNT//2 - 1:
+        elif len(pairs) == self.NUM_VARIABLES//2 - 1:
             self._logical_action_helper(circuit, pairs, gates=['CZ', 'Z'])
-        elif len(pairs) == self.BIT_COUNT//2:
+        elif len(pairs) == self.NUM_VARIABLES//2:
             arguments_0 = extract_arguments(0, pairs)
             logical_index = self.subset_to_logical_index[frozenset(arguments_0)]
-            gate = 'S_DAG' if self.BIT_COUNT//2 % 2 else 'S'
+            gate = 'S_DAG' if self.NUM_VARIABLES//2 % 2 else 'S'
             circuit.append(gate, logical_index, ())
         else:
-            raise ValueError("pairs cannot be longer than self.BIT_COUNT/2")
+            raise ValueError("pairs cannot be longer than self.NUM_VARIABLES/2")
         return circuit
 
     def _logical_action_starter(self):
@@ -408,7 +408,7 @@ class QuantumReedMuller:
         encountered_qubits: set[int] = set()
         for logical_index, b_subset in self.logical_qubit_ordering.items():
             if logical_index not in encountered_qubits and arguments_0.issubset(b_subset) and arguments_1.isdisjoint(b_subset):
-                b_complement = complement(self.BIT_COUNT, b_subset)
+                b_complement = complement(self.NUM_VARIABLES, b_subset)
                 b_prime_subset = b_complement.union(arguments_0).difference(arguments_1)
                 logical_index_prime = self.subset_to_logical_index[frozenset(b_prime_subset)]
                 for gate in gates:
@@ -454,9 +454,9 @@ class QuantumReedMuller:
         :param b_subset: Logical qubit label B as a subset of [m] of cardinality m/2.
         :returns circuit: A ``stim.Circuit`` inducing the logical S on that qubit.
         """
-        pairs = list(zip(b_subset, complement(self.BIT_COUNT, b_subset), strict=True))
+        pairs = list(zip(b_subset, complement(self.NUM_VARIABLES, b_subset), strict=True))
         out = self.automorphism_product(pairs, automorphism_type='Q', gate_type='phase')
-        if self.BIT_COUNT//2 % 2:
+        if self.NUM_VARIABLES//2 % 2:
             return out.inverse()
         return out
 
@@ -468,7 +468,7 @@ class QuantumReedMuller:
         """
         s_b = self._s(b_subset)
         transversal_h = stim.Circuit(f'H {' '.join(str(k) for k in range(s_b.num_qubits))}')
-        s_b_complement = self._s(complement(self.BIT_COUNT, b_subset))
+        s_b_complement = self._s(complement(self.NUM_VARIABLES, b_subset))
         return s_b + transversal_h + s_b_complement + transversal_h + s_b
     
     def _2_qubit_gate(self, target_0: int, target_1: int, name: Literal['SWAP', 'ZZCZ']):
@@ -504,9 +504,9 @@ class QuantumReedMuller:
         :raises ValueError: If B and B' do not differ by exactly one element.
         """
         arguments_0 = b_subset.intersection(b_prime_subset)
-        if len(arguments_0) != self.BIT_COUNT//2 - 1:
+        if len(arguments_0) != self.NUM_VARIABLES//2 - 1:
             raise ValueError(f"Logical qubit labels {b_subset}, {b_prime_subset} must differ by exactly one element.")
-        arguments_1 = complement(self.BIT_COUNT, b_subset.union(b_prime_subset))
+        arguments_1 = complement(self.NUM_VARIABLES, b_subset.union(b_prime_subset))
         pairs = list(zip(arguments_0, arguments_1, strict=True))
         return self.automorphism_product(pairs, automorphism_type='Q', gate_type='phase')
 
