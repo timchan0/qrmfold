@@ -18,7 +18,7 @@ clean:
 	rm -rf "$(APIDOCDIR)"
 
 apidoc:
-	@$(PYTHON) -m sphinx.ext.apidoc --force --separate --module-first --private -o "$(APIDOCDIR)" "$(PACKAGEDIR)"
+	@$(PYTHON) -m sphinx.ext.apidoc --force --separate --module-first -o "$(APIDOCDIR)" "$(PACKAGEDIR)" "_*"
 
 
 html: apidoc
