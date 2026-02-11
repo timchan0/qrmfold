@@ -101,7 +101,7 @@ class TestLogicalAction:
         qrm = qrms[m]
         pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
         physical_circuit = qrm.automorphism(pairs, 'Q', 'phase')
-        realized_tableau = qrm._get_logical_tableau(physical_circuit)
+        realized_tableau = qrm.get_logical_tableau(physical_circuit)
         target_tableau = qrm.q_phase_logical_action(pairs).to_tableau()
         assert realized_tableau == target_tableau
 
@@ -113,7 +113,7 @@ class TestLogicalAction:
         qrm = qrms[m]
         pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
         physical_circuit = qrm.automorphism_product(pairs, automorphism_type='Q', gate_type='phase')
-        realized_tableau = qrm._get_logical_tableau(physical_circuit)
+        realized_tableau = qrm.get_logical_tableau(physical_circuit)
         target_tableau = qrm.q_phase_product_logical_action(pairs).to_tableau()
         assert target_tableau == realized_tableau
 
@@ -133,7 +133,7 @@ class TestAddressableLogicalAction:
         qrm = qrms[m]
         for logical_index in qrm.logical_qubit_ordering.keys():
             physical_circuit = qrm.gate(name, [logical_index], reduce_depth=reduce_depth)
-            realized_tableau = qrm._get_logical_tableau(physical_circuit)
+            realized_tableau = qrm.get_logical_tableau(physical_circuit)
             
             target_circuit = stim.Circuit()
             target_circuit.append('I', qrm.logical_qubit_ordering.keys(), ())
@@ -159,7 +159,7 @@ class TestAddressableLogicalAction:
             if len(i_subset.intersection(j_subset)) == qrm.NUM_VARIABLES//2 - 1:
                 
                 physical_circuit = to_test(i_subset, j_subset)
-                realized_tableau = qrm._get_logical_tableau(physical_circuit)
+                realized_tableau = qrm.get_logical_tableau(physical_circuit)
             
                 target_circuit = stim.Circuit()
                 target_circuit.append('I', qrm.logical_qubit_ordering.keys(), ())
@@ -188,7 +188,7 @@ class TestAddressableLogicalAction:
         gates = ['SWAP'] if name == 'SWAP' else ['CZ', 'Z']
         for i, j in itertools.combinations(qrm.logical_qubit_ordering.keys(), 2):
             physical_circuit = qrm.gate(name, [i, j], reduce_depth=reduce_depth)
-            realized_tableau = qrm._get_logical_tableau(physical_circuit)
+            realized_tableau = qrm.get_logical_tableau(physical_circuit)
         
             target_circuit = stim.Circuit()
             target_circuit.append('I', qrm.logical_qubit_ordering.keys(), ())

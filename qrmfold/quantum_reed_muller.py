@@ -513,10 +513,10 @@ class QuantumReedMuller:
         hh = self._h(b_subset) + self._h(b_prime_subset)
         return 3 * (zzcz + hh)
 
-    def _get_logical_tableau(self, physical_circuit: stim.Circuit):
-        """Compute the logical tableau induced by a physical circuit.
+    def get_logical_tableau(self, physical_circuit: stim.Circuit):
+        """Compute the logical action induced by a physical circuit.
 
-        :param physical_circuit: A physical circuit that preserve the
+        :param physical_circuit: A physical circuit that preserves the
             stabilizer group.
         :returns tableau: The induced logical tableau.
         """
