@@ -2,18 +2,25 @@
 
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://timchan0.github.io/qrmfold/)
 
-A Python package to construct addressable gates for self-dual quantum Reed-Muller codes as a sequence of transversal and fold-transversal gates.
+A Python package to construct addressable gates
+for self-dual quantum Reed-Muller codes
+as a sequence of transversal and fold-transversal gates.
 
 ## Installation Instructions
 Run `pip install qrmfold`.
 
 ## Tutorial
-See [`getting_started.ipynb`](https://github.com/timchan0/qrmfold/blob/main/getting_started.ipynb).
+See the
+[`getting_started.ipynb`](https://github.com/timchan0/qrmfold/blob/main/getting_started.ipynb)
+notebook.
 For more detail on individual functions/methods,
-inspect their docstrings.
+see below.
 
-## Documentation (Sphinx)
-Build the HTML docs from the source docstrings:
+## Documentation
+If you just want to read the documentation (most users),
+click the blue **Documentation** badge at the top of this README.
+
+Optionally, you can build the HTML docs locally:
 
 - Install docs dependencies: `pip install -e ".[docs]"`
 - Build: `cd docs && make html`
