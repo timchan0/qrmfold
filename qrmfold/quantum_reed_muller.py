@@ -513,16 +513,35 @@ class QuantumReedMuller:
         hh = self._h(b_subset) + self._h(b_prime_subset)
         return 3 * (zzcz + hh)
 
+    def stabilizers_preserved(self, physical_circuit: stim.Circuit):
+        """Check if a physical circuit preserves the stabilizer group.
+        
+        :param physical_circuit: A physical circuit with 2^m qubits.
+        :returns preserved: True if the stabilizer group is preserved, else False.
+        """
+        new_stabilizers_bsf: list[np.ndarray[tuple[int], np.dtype[np.bool_]]] = []
+        for basis_generators in self.stabilizer_generators.values():
+            for generator in basis_generators:
+                morphed = generator.after(physical_circuit)
+                assert (sign_to_power[morphed.sign] + str(morphed).count('Y')) % 4 == 0
+                xs, zs =  morphed.to_numpy()
+                new_stabilizers_bsf.append(np.append(xs, zs))
+        new_stabilizer_generators_rref = rref_gf2(new_stabilizers_bsf)
+        return np.array_equal(new_stabilizer_generators_rref, self.stabilizer_generators_rref)
+    
     def get_logical_tableau(self, physical_circuit: stim.Circuit):
         """Compute the logical action induced by a physical circuit.
 
-        :param physical_circuit: A physical circuit that preserves the
-            stabilizer group.
+        :param physical_circuit: A physical circuit with 2^m qubits
+            that preserves the stabilizer group.
         :returns tableau: The induced logical tableau.
         """
         xs: list[stim.PauliString] = []
         zs: list[stim.PauliString] = []
-        for _, subset in sorted(self.logical_qubit_ordering.items(), key=lambda item: item[0]):
+        for _, subset in sorted(
+            self.logical_qubit_ordering.items(),
+            key=lambda item: item[0],
+        ):
             for logical_operator, conjugated_generator_list in zip(
                 self.logical_operators[frozenset(subset)],
                 (xs, zs),
@@ -530,8 +549,12 @@ class QuantumReedMuller:
             ):
                 transformed = logical_operator.after(physical_circuit)
                 transformed_logical_action = ''.join(_signature_to_pauli[tuple(
-                    not transformed.commutes(observable) for observable in self.logical_operators[frozenset(_subset)]
-                )] for _, _subset in sorted(self.logical_qubit_ordering.items(), key=lambda item: item[0])) # type: ignore
+                    not transformed.commutes(observable)
+                    for observable in self.logical_operators[frozenset(_subset)]
+                )] for _, _subset in sorted( # type: ignore
+                    self.logical_qubit_ordering.items(),
+                    key=lambda item: item[0],
+                ))
 
                 # construct logical representative
                 logical_representative = stim.PauliString()
@@ -553,6 +576,7 @@ class QuantumReedMuller:
                 phase_exponent = (sign_to_power[phase_stabilizer.sign] + \
                     len(phase_stabilizer.pauli_indices('Y'))) % 4
 
-                conjugated_generator_list.append(1j**phase_exponent * stim.PauliString(transformed_logical_action))
+                conjugated_generator_list.append(
+                    1j**phase_exponent * stim.PauliString(transformed_logical_action))
         tableau = stim.Tableau.from_conjugated_generators(xs=xs, zs=zs)
         return tableau

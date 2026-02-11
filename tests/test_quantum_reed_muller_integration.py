@@ -2,31 +2,13 @@ import itertools
 from typing import Literal
 
 import pytest
-import numpy as np
 import stim
 
-from qrmfold._utils import sign_to_power
 from qrmfold.quantum_reed_muller import QuantumReedMuller
-from qrmfold._utils import rref_gf2
 
 
 class TestCodespacePreservation:
     """Test the stabilizer group is preserved."""
-
-    def _helper(
-            self,
-            qrm: QuantumReedMuller,
-            circuit: stim.Circuit,
-    ):
-        new_stabilizers_bsf: list[np.ndarray[tuple[int], np.dtype[np.bool_]]] = []
-        for basis_generators in qrm.stabilizer_generators.values():
-            for generator in basis_generators:
-                morphed = generator.after(circuit)
-                assert (sign_to_power[morphed.sign] + str(morphed).count('Y')) % 4 == 0
-                xs, zs =  morphed.to_numpy()
-                new_stabilizers_bsf.append(np.append(xs, zs))
-        new_stabilizer_generators_rref = rref_gf2(new_stabilizers_bsf)
-        assert np.array_equal(new_stabilizer_generators_rref, qrm.stabilizer_generators_rref)
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
     @pytest.mark.parametrize("automorphism_type", ['P', 'Q'])
@@ -44,7 +26,7 @@ class TestCodespacePreservation:
         qrm = qrms[m]
         for k in range(0, m, 2):
             circuit = qrm.automorphism([(k+1, k+2)], automorphism_type, gate_type)
-            self._helper(qrm, circuit)
+            assert qrm.stabilizers_preserved(circuit)
 
     @pytest.mark.parametrize("gate_type", ['swap', 'phase'])
     @pytest.mark.parametrize("automorphism_type", ['P', 'Q'])
@@ -63,7 +45,7 @@ class TestCodespacePreservation:
         for pair_count in range(1, m//2 + 1):
             pairs = [(k+1, k+2) for k in range(0, 2*pair_count, 2)]
             circuit = qrm.automorphism(pairs, automorphism_type, gate_type)
-            self._helper(qrm, circuit)
+            assert qrm.stabilizers_preserved(circuit)
 
     @pytest.mark.parametrize("m", range(2, 12, 2))
     def test_trivial_automorphism_phase_type(self, m: int, qrms: dict[int, QuantumReedMuller]):
@@ -72,7 +54,7 @@ class TestCodespacePreservation:
         """
         qrm = qrms[m]
         circuit = qrm.automorphism(gate_type='phase')
-        self._helper(qrm, circuit)
+        assert qrm.stabilizers_preserved(circuit)
 
     @pytest.mark.parametrize("reduce_depth", (False, True))
     @pytest.mark.parametrize("name", ('ZZCZ', 'SWAP'))
@@ -87,7 +69,7 @@ class TestCodespacePreservation:
         qrm = qrms[m]
         for j, k in itertools.combinations(qrm.logical_qubit_ordering.keys(), 2):
             circuit = qrm.gate(name, [j, k], reduce_depth=reduce_depth)
-            self._helper(qrm, circuit)
+            assert qrm.stabilizers_preserved(circuit)
 
 
 class TestLogicalAction:

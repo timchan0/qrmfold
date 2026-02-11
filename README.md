@@ -41,5 +41,18 @@ Please cite the accompanying paper:
 }
 ```
 
+## Tests
+
+This package uses the `pytest` framework.
+The tests are divided into unit tests and integration tests.
+The integration tests verify that:
+1. the fold-transversal gates preserve the stabilizer group (Theorems 3 and 4),
+2. the fold-transversal gates induce the logical action predicted by Theorems 5 and 6,
+3. the addressable gates built from Corollary 1 and Theorems 7 and 8 induce the desired logical action.
+
+Note there is one test, `test_quantum_reed_muller_integration.TestAddressableLogicalAction.test_2_qubit_gate` for the parameter $m =6$,
+that takes considerably longer than the others
+i.e. about 300 s on a laptop.
+
 ## Release (maintainers)
 This repo includes a GitHub Actions workflow that publishes to PyPI when a version tag like `v0.7.0` is pushed.
