@@ -1,5 +1,6 @@
 from collections.abc import Collection, Iterable
 from itertools import chain, combinations
+import math
 from typing import Literal
 
 import numpy as np
@@ -90,3 +91,16 @@ def rref_gf2(matrix: list[np.ndarray[tuple[int], np.dtype[np.bool_]]]):
 
 sign_to_power: dict[complex, int] = {1: 0, 1j: 1, -1: 2, -1j: 3}
 """Map from {±1, ±i} to the exponent of i."""
+
+
+def multiply(*vectors: Iterable[int]):
+    """Elementwise multiplication of vectors.
+
+    Require at least one vector, and all vectors must have the same length.
+    """
+    return [math.prod(a) for a in zip(*vectors, strict=True)]
+
+
+def flip(vector: Iterable[int]):
+    """Subtract a vector over GF(2) from 1."""
+    return [1 - a for a in vector]

@@ -11,8 +11,9 @@ def reduce_circuit_depth(circuit: stim.Circuit):
     Accumulates the S, Z, S_DAG, and CZ gates
     and removes the I gates.
 
-    :param circuit: Input circuit.
-    :returns reduced_circuit: An equivalent circuit of reduced depth.
+    :param circuit: Input circuit as a ``stim.Circuit``.
+    :returns reduced_circuit: An equivalent circuit of reduced depth
+        as a ``stim.Circuit``.
     :raises ValueError: If an unsupported instruction is encountered.
     """
     return _DepthReducer.reduce(circuit)

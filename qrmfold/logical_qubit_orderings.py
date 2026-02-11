@@ -1,3 +1,11 @@
+"""Pre-defined 1-to-1 maps from logical qubit
+index to a subset of [m] of cardinality m/2.
+
+Available orderings:
+- lexicographic
+- canonical
+"""
+
 import itertools
 import math
 
