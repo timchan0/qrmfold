@@ -2,8 +2,7 @@
 
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://timchan0.github.io/qrmfold/)
 
-A Python package to generate the full logical Clifford group
-from transversal and fold-transversal gates in the quantum Reed-Muller code.
+A Python package to construct addressable gates for self-dual quantum Reed-Muller codes as a sequence of transversal and fold-transversal gates.
 
 ## Installation Instructions
 Run `pip install qrmfold`.
