@@ -25,3 +25,8 @@ Optionally, you can build the HTML docs locally:
 - Install docs dependencies: `pip install -e ".[docs]"`
 - Build: `cd docs && make html`
 - Open: `docs/build/html/index.html`
+
+## Release (maintainers)
+
+This repo includes a GitHub Actions workflow that publishes to PyPI when you push a version tag like `v0.7.0`.
+To use it, configure PyPI "Trusted Publishing" for this GitHub repository/project, then push a matching tag.
