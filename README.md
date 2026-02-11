@@ -1,12 +1,10 @@
-# qrmfold (Quantum Reed-Muller Fold)
+# qrmfold
 
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://timchan0.github.io/qrmfold/)
 
-A Python package to construct addressable gates
-for self-dual quantum Reed-Muller codes
-as a sequence of transversal and fold-transversal gates.
-Click [here](https://arxiv.org/abs/2602.09788)
-for the accompanying paper.
+qrmfold (Quantum Reed-Muller Fold)
+is the Python package accompanying the paper
+[Construction of the full logical Clifford group for high-rate quantum Reed-Muller codes using only transversal and fold-transversal gates](https://arxiv.org/abs/2602.09788).
 
 ## Installation Instructions
 qrmfold is available as a [PyPI package](https://pypi.org/project/qrmfold/)
