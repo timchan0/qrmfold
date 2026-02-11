@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
+import tomllib
 
 # Add repository root to sys.path so autodoc can import qrmfold
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, "..", "..", "..")))
@@ -9,8 +11,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(__file__, "..", "..", "..")))
 project = "qrmfold"
 author = "Tim Chan"
 
-# Keep in sync with pyproject.toml where practical; Sphinx uses this for display only.
-release = "0.6.4"
+def _project_version() -> str:
+    repo_root = Path(__file__).resolve().parents[2]
+    pyproject_path = repo_root / "pyproject.toml"
+    data = tomllib.loads(pyproject_path.read_text("utf-8"))
+    return data["project"]["version"]
+
+
+# Keep in sync with pyproject.toml; Sphinx uses this for display only.
+release = _project_version()
+version = release
 
 extensions = [
     "sphinx.ext.autodoc",
