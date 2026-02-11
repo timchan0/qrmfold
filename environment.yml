@@ -6,6 +6,7 @@ dependencies:
   - ipykernel
   - ipywidgets
   - pytest
+  - sphinx
   - hatch
   - pip
   - pip:

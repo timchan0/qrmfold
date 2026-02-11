@@ -9,9 +9,33 @@ __pycache__/
 /build/
 *.egg-info/
 
+# Sphinx documentation
+/docs/build/
+/docs/source/api/
+/docs/source/generated/
+
 # Python bytecode
 *.py[cod]
 *$py.class
 
 # Test/cache
 .pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Type checker / linter caches
+.mypy_cache/
+.pytype/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
