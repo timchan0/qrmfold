@@ -204,6 +204,11 @@ class QuantumReedMuller:
         }
         """Map from subset of [m] of cardinality m/2 to logical qubit index."""
 
+    @property
+    def LOGICAL_QUBIT_COUNT(self):
+        """The number of logical qubits encoded by the code."""
+        return math.comb(self.NUM_VARIABLES, self.NUM_VARIABLES//2)
+    
     @staticmethod
     def _validate_init_inputs(num_variables: int, logical_qubit_ordering: None | dict[int, set[int]]):
         """Validate constructor inputs.
