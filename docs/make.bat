@@ -9,7 +9,7 @@ set PACKAGEDIR=..\qrmfold
 
 if "%1"=="" goto help
 
-python -m sphinx.ext.apidoc --force --separate --module-first --private -o %APIDOCDIR% %PACKAGEDIR%
+python -m sphinx.ext.apidoc --force --separate --module-first -o "%APIDOCDIR%" "%PACKAGEDIR%" "_*"
 python -m sphinx -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS%
 goto end
 
