@@ -5,6 +5,11 @@
 qrmfold (Quantum Reed-Muller Fold)
 is the Python package accompanying the paper
 [Construction of the full logical Clifford group for high-rate quantum Reed-Muller codes using only transversal and fold-transversal gates](https://arxiv.org/abs/2602.09788).
+Its main function is to output
+addressable S, Hadamard, controlled-Z, and swap gates
+for quantum Reed-Muller codes.
+The output format is a [`stim.Circuit`](https://github.com/quantumlib/Stim/wiki/Stim-v1.13-Python-API-Reference#stim.Circuit)
+which can then easily be [converted](https://github.com/quantumlib/Stim/wiki/Stim-v1.13-Python-API-Reference#stim.Circuit.to_qasm) to QASM.
 
 ## Installation Instructions
 qrmfold is available as a [PyPI package](https://pypi.org/project/qrmfold/)
